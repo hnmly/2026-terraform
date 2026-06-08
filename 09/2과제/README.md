@@ -37,25 +37,56 @@
 - `python3`, `bash` (Module1 `result.json` 생성, Module3 실행 — CloudShell 기본 제공)
 - 4개 리전(ap-northeast-2, us-east-1, ap-southeast-1, ap-northeast-3) 사용 가능 권한
 
-## 실행 방법 (CloudShell / Linux 권장)
+## 실행 방법 — ⚠️ 반드시 AWS CloudShell에서 실행
 
-`team_id`(비번호)는 기본값이 없어 `apply` 시 입력 프롬프트가 뜹니다.
+> **중요**: 채점은 **AWS CloudShell 환경**에서 수행됩니다.
+> Module1 `[1-5]`는 채점 머신(CloudShell)의 `~/result.json` 파일을 확인하는데,
+> 로컬 PC에서 Terraform을 돌리면 `result.json`이 로컬에만 생기고 CloudShell에는 없어 **0점** 처리됩니다.
+> 따라서 **Terraform 자체를 CloudShell에서 실행**하거나, 최소한 `result.json` 생성 단계만큼은
+> 채점에 사용하는 CloudShell에서 수행해야 합니다.
+
+### 0) CloudShell 준비 (ap-northeast-2 리전에서 CloudShell 열기)
+
+CloudShell에는 `aws`, `python3`, `git`은 기본 제공되지만 Terraform은 없으므로 설치합니다.
+
+```bash
+# Terraform 설치 (CloudShell, Amazon Linux 2023 기준)
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+sudo yum install -y terraform
+terraform version
+```
+
+### 1) 레포 클론 & 폴더 이동
+
+```bash
+git clone https://github.com/hnmly/2026-terraform.git
+cd 2026-terraform/09/2과제
+```
+
+### 2) 초기화 → 배포 (비번호는 apply 시 입력)
 
 ```bash
 terraform init
-terraform apply      # team_id(비번호) 입력 후 yes
+terraform apply        # team_id(비번호) 입력 후 yes
 # 또는 한 줄: terraform apply -var="team_id=007"
 ```
 
 > Aurora Serverless v2 기동과 CloudFront 배포에는 각각 수 분이 소요됩니다.
 > `terraform apply`는 Aurora 인스턴스가 Available 될 때까지 대기합니다.
 
-### 모듈별 동작 확인
+### 3) Module1 result.json 생성 (CloudShell에서 — 채점 [1-5] 필수)
+
+Terraform이 데이터 20건을 삽입한 뒤, **채점에 사용할 CloudShell의 홈 디렉터리**에 생성합니다.
 
 ```bash
-# Module1: 조회 결과 파일
-cat ~/result.json
+bash files/nosql/query.sh electronics
+cat ~/result.json        # 상품 데이터 목록이 출력되어야 함
+```
 
+### 4) 모듈별 동작 확인
+
+```bash
 # Module2: 커스텀 헤더
 CF=$(terraform output -raw m2_cloudfront_domain)
 curl -sI "https://$CF/index.html?v=1" | grep -i X-Custom-Header   # x-custom-header: wsc2026
@@ -70,7 +101,7 @@ cat response.json
 
 ### 채점 스크립트
 
-지급된 채점 스크립트로 점수를 확인할 수 있습니다.
+지급된 채점 스크립트로 점수를 확인할 수 있습니다. (CloudShell에서 실행)
 
 ```bash
 bash grade_all.sh <비번호>
