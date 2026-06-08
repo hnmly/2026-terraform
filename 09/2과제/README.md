@@ -80,7 +80,9 @@ terraform apply        # team_id(비번호) 입력 후 yes
 Terraform이 데이터 20건을 삽입한 뒤, **채점에 사용할 CloudShell의 홈 디렉터리**에 생성합니다.
 
 ```bash
-bash files/nosql/query.sh electronics
+query.sh 파일 업로드
+chmod +x query.sh
+./query.sh
 cat ~/result.json        # 상품 데이터 목록이 출력되어야 함
 ```
 
