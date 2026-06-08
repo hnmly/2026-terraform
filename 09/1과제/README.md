@@ -3,13 +3,9 @@
 지급된 정적 웹 파일(`index.html`, `main.jpeg`)과 컨테이너 실행 파일(`book`)을 사용하여
 AWS 상에 콘서트 예약 서비스를 구축하는 **학습/참고용 Terraform** 구성입니다.
 
-> ⚠️ **중요 — 실제 시험 감점 주의**
-> 1과제 채점 스크립트(`grade_task1.sh`)의 **8-2 항목**에는 다음 경고가 있습니다.
-> `※ IaC(Terraform, CDK 등) 사용 확인 시 0점 처리됩니다.`
-> 또한 문제지 "사용 가능 Software Stack"에 Terraform은 포함되어 있지 않습니다
-> (AWS Console / AWS CLI v2 / Docker만 명시).
-> 따라서 **실제 경기에서는 콘솔 또는 CLI로 직접 구축**해야 하며, 이 Terraform 코드는
-> 아키텍처 이해 및 연습 목적의 참고 자료로만 사용하시기 바랍니다.
+> ℹ️ **참고**
+> 일부 채점 스크립트에 IaC 사용 제한 문구가 있었으나, 이는 **잘못 포함된 내용으로 확인**되었습니다.
+> Terraform 등 IaC를 사용해도 무방합니다. 본 구성은 Terraform으로 전체 인프라를 배포합니다.
 
 ---
 
@@ -58,33 +54,114 @@ AWS 상에 콘서트 예약 서비스를 구축하는 **학습/참고용 Terrafo
 | `iam.tf`             | Task Execution Role, Task Role(DynamoDB 권한) |
 | `outputs.tf`         | CloudFront 도메인 등 출력값 |
 
-## 사전 요구사항
+## Windows PowerShell 실행 가이드 (처음부터 끝까지)
 
-- Terraform >= 1.5
-- AWS CLI v2 (자격증명 구성 완료, `ap-northeast-2`)
-- Docker (buildx 포함) — ECR 이미지 빌드/푸시에 사용
+아무 도구도 설치되지 않은 Windows에서 시작한다고 가정합니다.
+**관리자 권한 PowerShell**을 열고 아래 순서대로 진행하세요.
 
-## 배포 방법
+### 0) 필수 도구 설치 (winget)
 
-```bash
-# 1) 변수 파일 준비
-cp terraform.tfvars.example terraform.tfvars
-# terraform.tfvars 의 player_id 를 본인 선수ID로 수정 (소문자/숫자/하이픈)
+```powershell
+# Git
+winget install --id Git.Git -e --source winget
 
-# 2) 초기화
-terraform init
+# AWS CLI v2
+winget install --id Amazon.AWSCLI -e --source winget
 
-# 3) 검토 및 적용
-terraform plan
-terraform apply
+# Terraform
+winget install --id HashiCorp.Terraform -e --source winget
+
+# Docker Desktop (ECR 이미지 빌드/푸시에 필요)
+winget install --id Docker.DockerDesktop -e --source winget
 ```
+
+설치 후 **PowerShell 창을 새로 열어야** PATH가 반영됩니다. 설치 확인:
+
+```powershell
+git --version
+aws --version
+terraform version
+docker --version
+```
+
+> Docker Desktop은 설치 후 한 번 실행해서 엔진이 "Running" 상태가 되어야 합니다.
+
+### 1) AWS 자격증명 구성
+
+```powershell
+aws configure
+# AWS Access Key ID     : <발급받은 키>
+# AWS Secret Access Key : <발급받은 시크릿>
+# Default region name   : ap-northeast-2
+# Default output format  : json
+
+# 확인
+aws sts get-caller-identity
+```
+
+### 2) 레포 클론 & 폴더 이동
+
+```powershell
+cd $env:USERPROFILE
+git clone https://github.com/hnmly/2026-terraform.git
+cd 2026-terraform\09\1과제
+```
+
+### 3) 변수 파일 작성 (선수ID 지정)
+
+```powershell
+Copy-Item terraform.tfvars.example terraform.tfvars
+notepad terraform.tfvars
+# player_id = "your-id"  ->  본인 선수ID(소문자/숫자/하이픈)로 수정 후 저장
+```
+
+### 4) 초기화 → 검토 → 배포
+
+```powershell
+terraform init
+terraform plan
+terraform apply        # 확인 메시지에 yes 입력 (또는 terraform apply -auto-approve)
+```
+
+`apply`가 끝나면 출력값에 CloudFront 도메인이 표시됩니다.
+CloudFront 배포 완료(`Deployed`)까지는 수 분 더 걸릴 수 있습니다.
+
+### 5) 동작 확인 (PowerShell)
+
+```powershell
+$CF = terraform output -raw cloudfront_domain_name
+
+# 정적 페이지
+curl.exe -i "https://$CF/"
+
+# 헬스 체크 -> {"status":"OK","version":"1.0.1"}
+curl.exe -i "https://$CF/health"
+
+# 예약 생성 (POST) -> {"booking_id":"..."}
+curl.exe -i -X POST "https://$CF/v1/book" `
+  -H "Content-Type: application/json" `
+  -d '{\"client_id\":\"C001\",\"username\":\"Alice\",\"email\":\"kim@example.com\",\"concert_name\":\"Seoul2026\"}'
+```
+
+### 6) 리소스 정리
+
+```powershell
+terraform destroy     # 확인 메시지에 yes 입력
+```
+
+---
+
+## 사전 요구사항 (요약)
+
+- Git, Terraform >= 1.5, AWS CLI v2, Docker Desktop
+- AWS 자격증명 구성 완료 (`ap-northeast-2`)
+
+## 배포 순서 내부 동작
 
 `terraform apply` 시 다음 순서로 처리됩니다.
 1. 네트워크/보안그룹/DynamoDB/IAM/ECR 생성
 2. `null_resource.docker_build_push` 가 `book` 이미지를 빌드해 ECR에 `latest`로 push
 3. ECS TaskDefinition/Service, ALB, S3, CloudFront 생성
-
-> CloudFront 배포 완료(`Deployed`)까지 수 분 소요될 수 있습니다.
 
 ### Docker 빌드/푸시 (수동, Linux/macOS)
 
