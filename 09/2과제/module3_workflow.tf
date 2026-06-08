@@ -187,27 +187,12 @@ resource "aws_sfn_state_machine" "workflow" {
   }
 }
 
-# ---- 실행 (workflow-output 에 데이터 저장) ----
-resource "null_resource" "workflow_execute" {
-  triggers = {
-    sfn    = aws_sfn_state_machine.workflow.arn
-    lambda = aws_lambda_function.workflow_transform.source_code_hash
-    data   = aws_s3_object.workflow_data.etag
-  }
-
-  provisioner "local-exec" {
-    interpreter = ["bash", "-c"]
-    command     = <<-EOT
-      aws stepfunctions start-execution \
-        --state-machine-arn ${aws_sfn_state_machine.workflow.arn} \
-        --input '{"bucket":"${local.workflow_bucket}","key":"data.csv"}' \
-        --region ap-southeast-1
-    EOT
-  }
-
-  depends_on = [
-    aws_sfn_state_machine.workflow,
-    aws_s3_object.workflow_data,
-    aws_iam_role_policy.workflow_lambda
-  ]
-}
+# ---- 워크플로 실행 안내 ----
+# 채점 [3-5]는 Step Functions를 실행한 뒤 workflow-output 테이블의 데이터를 확인한다.
+# (채점 스크립트 grade_module3.sh 가 start-execution 을 직접 수행한다.)
+# 수동 확인이 필요하면 아래 명령으로 실행한다.
+#
+#   aws stepfunctions start-execution \
+#     --state-machine-arn <m3_state_machine_arn 출력값> \
+#     --input '{"bucket":"workflow-input-<비번호>","key":"data.csv"}' \
+#     --region ap-southeast-1

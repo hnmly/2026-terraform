@@ -87,11 +87,13 @@ terraform destroy    # team_id 입력 후 yes
 
 ## 구현 메모
 
-- **Module1**: 데이터 20건은 `aws_dynamodb_table_item`으로 삽입하고, `null_resource`가 지급된
-  `query.sh electronics`를 실행해 `~/result.json`을 생성합니다.
+- **Module1**: 데이터 20건은 `aws_dynamodb_table_item`으로 삽입합니다. `~/result.json`은 환경
+  의존(aws/python3 PATH) 때문에 자동화하지 않고, apply 후 `bash files/nosql/query.sh electronics`로
+  생성합니다(CloudShell 권장).
 - **Module2**: CloudFront Function(`cloudfront-js-2.0`)을 viewer-response에 연결하여
   `X-Custom-Header: wsc2026`를 추가합니다. S3는 퍼블릭 차단 + OAC + 버킷 정책으로 직접 접근을 막습니다.
-- **Module3**: Step Functions(STANDARD)가 Lambda를 호출하고, `null_resource`가 실행을 트리거해
-  `workflow-output`에 CSV 데이터를 저장합니다. SFN 역할에는 `lambda:InvokeFunction`만 부여합니다.
-- **Module4**: Aurora MySQL Serverless v2(0.5~4 ACU)에 Data API(HTTP Endpoint)를 활성화하고,
-  Secret `rds/aurora/admin`을 참조하는 Lambda가 RDS Data API로 SQL을 실행합니다. (VPC 미사용)
+- **Module3**: Step Functions(STANDARD)가 Lambda를 호출하며, SFN 역할에는 `lambda:InvokeFunction`만
+  부여합니다. 실행(start-execution)은 채점 스크립트가 직접 수행하므로 자동화에서 제외했습니다.
+- **Module4**: ap-northeast-3에는 기본 VPC가 없으므로 Aurora용 전용 VPC/서브넷/DB Subnet Group을
+  함께 생성합니다(Data API는 퍼블릭 HTTPS라 IGW/NAT 불필요). Aurora MySQL Serverless v2(0.5~4 ACU)에
+  Data API를 활성화하고, Secret `rds/aurora/admin`을 참조하는 Lambda가 RDS Data API로 SQL을 실행합니다.

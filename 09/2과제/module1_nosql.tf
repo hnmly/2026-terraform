@@ -86,18 +86,12 @@ resource "aws_dynamodb_table_item" "products" {
   })
 }
 
-# ---- ~/result.json 생성 (query.sh electronics) ----
-# 채점 [1-5]는 CloudShell의 ~/result.json 을 확인한다. 데이터 삽입 후 실행.
-resource "null_resource" "nosql_result" {
-  triggers = {
-    table = aws_dynamodb_table.products.name
-    items = join(",", keys(aws_dynamodb_table_item.products))
-  }
-
-  provisioner "local-exec" {
-    interpreter = ["bash", "-c"]
-    command     = "REGION=ap-northeast-2 TABLE_NAME=nosql-products bash ${path.module}/files/nosql/query.sh electronics"
-  }
-
-  depends_on = [aws_dynamodb_table_item.products]
-}
+# ---- ~/result.json 생성 안내 ----
+# 채점 [1-5]는 CloudShell의 ~/result.json 을 확인한다.
+# Terraform이 데이터 20건을 삽입한 뒤, 아래 명령으로 result.json을 생성한다.
+# (aws CLI + python3 가 PATH에 있는 환경, 예: CloudShell 에서 실행)
+#
+#   bash files/nosql/query.sh electronics
+#   cat ~/result.json
+#
+# local-exec 자동화는 실행 환경(PATH의 aws 유무)에 의존하므로 수동 실행을 권장한다.

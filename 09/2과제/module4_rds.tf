@@ -20,6 +20,48 @@ data "aws_rds_engine_version" "aurora_mysql" {
   latest   = true
 }
 
+# ---- 네트워크 (ap-northeast-3에 기본 VPC가 없어 Aurora용 전용 VPC/서브넷 구성) ----
+# Data API는 퍼블릭 HTTPS 엔드포인트를 사용하므로 IGW/NAT 없이 프라이빗 서브넷이면 충분.
+data "aws_availability_zones" "osaka" {
+  provider = aws.osaka
+  state    = "available"
+}
+
+resource "aws_vpc" "rds" {
+  provider             = aws.osaka
+  cidr_block           = "10.20.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name   = "rds-aurora-vpc"
+    Module = "RDSConnection"
+  }
+}
+
+resource "aws_subnet" "rds" {
+  provider          = aws.osaka
+  count             = 2
+  vpc_id            = aws_vpc.rds.id
+  cidr_block        = cidrsubnet(aws_vpc.rds.cidr_block, 8, count.index)
+  availability_zone = data.aws_availability_zones.osaka.names[count.index]
+
+  tags = {
+    Name   = "rds-aurora-subnet-${count.index + 1}"
+    Module = "RDSConnection"
+  }
+}
+
+resource "aws_db_subnet_group" "rds" {
+  provider   = aws.osaka
+  name       = "rds-aurora-subnet-group"
+  subnet_ids = aws_subnet.rds[*].id
+
+  tags = {
+    Module = "RDSConnection"
+  }
+}
+
 # ---- 마스터 암호 ----
 resource "random_password" "rds_master" {
   length           = 20
@@ -61,6 +103,7 @@ resource "aws_rds_cluster" "aurora" {
   master_username      = local.rds_master_user
   master_password      = random_password.rds_master.result
   enable_http_endpoint = true # RDS Data API
+  db_subnet_group_name = aws_db_subnet_group.rds.name
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5
