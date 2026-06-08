@@ -107,26 +107,39 @@ git clone https://github.com/hnmly/2026-terraform.git
 cd 2026-terraform\09\1과제
 ```
 
-### 3) 변수 파일 작성 (선수ID 지정)
+### 3) 초기화 → 검토 → 배포 (선수ID는 apply 시 입력)
 
-```powershell
-Copy-Item terraform.tfvars.example terraform.tfvars
-notepad terraform.tfvars
-# player_id = "your-id"  ->  본인 선수ID(소문자/숫자/하이픈)로 수정 후 저장
-```
-
-### 4) 초기화 → 검토 → 배포
+`player_id` 는 기본값이 없으므로 `terraform plan`/`apply` 를 실행하면
+**자동으로 선수ID 입력 프롬프트**가 나타납니다. tfvars 파일을 따로 만들 필요가 없습니다.
 
 ```powershell
 terraform init
-terraform plan
-terraform apply        # 확인 메시지에 yes 입력 (또는 terraform apply -auto-approve)
+terraform apply
 ```
+
+실행하면 아래처럼 입력을 요구합니다. 본인 선수ID(소문자/숫자/하이픈)를 입력하세요.
+
+```
+var.player_id
+  선수ID (모든 리소스 이름 접두어). apply 시 입력. 소문자/숫자/하이픈만, 예) hong
+
+  Enter a value: your-id      <-- 여기에 입력
+
+...
+Plan: NN to add, 0 to change, 0 to destroy.
+Do you want to perform these actions?
+  Enter a value: yes          <-- yes 입력하면 배포 시작
+```
+
+> 프롬프트 없이 한 줄로 실행하려면 `-var` 옵션을 쓰면 됩니다.
+> ```powershell
+> terraform apply -var="player_id=your-id"
+> ```
 
 `apply`가 끝나면 출력값에 CloudFront 도메인이 표시됩니다.
 CloudFront 배포 완료(`Deployed`)까지는 수 분 더 걸릴 수 있습니다.
 
-### 5) 동작 확인 (PowerShell)
+### 4) 동작 확인 (PowerShell)
 
 ```powershell
 $CF = terraform output -raw cloudfront_domain_name
@@ -143,7 +156,7 @@ curl.exe -i -X POST "https://$CF/v1/book" `
   -d '{\"client_id\":\"C001\",\"username\":\"Alice\",\"email\":\"kim@example.com\",\"concert_name\":\"Seoul2026\"}'
 ```
 
-### 6) 리소스 정리
+### 5) 리소스 정리
 
 ```powershell
 terraform destroy     # 확인 메시지에 yes 입력

@@ -1,5 +1,5 @@
 variable "player_id" {
-  description = "선수 식별 접두어. 모든 리소스 이름(Name) 앞에 붙는다. 예) hong"
+  description = "선수ID (모든 리소스 이름 접두어). apply 시 입력. 소문자/숫자/하이픈만, 예) hong"
   type        = string
 
   validation {
