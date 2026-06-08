@@ -1,0 +1,140 @@
+# =============================================================================
+# 애플리케이션 (wsc namespace)
+#  ${...} 변수는 scripts/deploy.sh(envsubst)로 terraform output 값이 치환된다.
+#   ${ECR_IMAGE}          : <ecr_url>:v1.0.0
+#   ${APP_SA_ROLE_ARN}    : App ServiceAccount IRSA Role ARN
+#   ${APP_LB_SUBNETS}     : private-a,private-c subnet id (내부 ALB)
+#   ${LAMBDA_ARN}         : wsc-get-table-function ARN (GET /v1/book)
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wsc-sa
+  namespace: wsc
+  annotations:
+    eks.amazonaws.com/role-arn: ${APP_SA_ROLE_ARN}
+---
+# 환경변수는 ConfigMap으로만 관리 (Pod에 직접 명시 금지)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wsc-config
+  namespace: wsc
+data:
+  AWS_REGION: ap-northeast-2
+  TABLE_NAME: wsc-table
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wsc-deploy
+  namespace: wsc
+  labels:
+    app: wsc-deploy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wsc-deploy
+  template:
+    metadata:
+      labels:
+        app: wsc-deploy
+    spec:
+      serviceAccountName: wsc-sa
+      # App NodeGroup(type=app)에만 배치
+      nodeSelector:
+        type: app
+      # 고가용성: 서로 다른 노드에 분산
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: wsc-deploy
+      containers:
+        - name: wsc-cnt
+          image: ${ECR_IMAGE}
+          ports:
+            - containerPort: 8080
+          # 환경변수는 ConfigMap 참조만 사용 (value 직접 명시 금지)
+          envFrom:
+            - configMapRef:
+                name: wsc-config
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wsc-svc
+  namespace: wsc
+spec:
+  selector:
+    app: wsc-deploy
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+# 내부 ALB (wsc-app-lb). Private Subnet, CloudFront에서만 접근.
+# GET /v1/book -> Lambda, 그 외 /v1/* -> 앱(POST), 기본 -> 404, /health -> 403
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wsc-ingress
+  namespace: wsc
+  annotations:
+    alb.ingress.kubernetes.io/load-balancer-name: wsc-app-lb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/subnets: ${APP_LB_SUBNETS}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    # /health -> 403, 정의되지 않은 경로 -> 404
+    alb.ingress.kubernetes.io/actions.health-deny: >-
+      {"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"403","messageBody":"Restrict access to api"}}
+    alb.ingress.kubernetes.io/actions.not-found: >-
+      {"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"404","messageBody":"Contents Not Found"}}
+    # GET /v1/book -> Lambda Target Group
+    alb.ingress.kubernetes.io/actions.get-book: >-
+      {"type":"forward","forwardConfig":{"targetGroups":[{"targetGroupARN":"${LAMBDA_TG_ARN}"}]}}
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          # /health 차단 (403)
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: health-deny
+                port:
+                  name: use-annotation
+          # POST/그 외 /v1/* -> 앱 서비스
+          - path: /v1/
+            pathType: Prefix
+            backend:
+              service:
+                name: wsc-svc
+                port:
+                  number: 80
+          # 그 외 모든 경로 -> 404
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: not-found
+                port:
+                  name: use-annotation

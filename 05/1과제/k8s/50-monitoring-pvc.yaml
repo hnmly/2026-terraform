@@ -1,0 +1,26 @@
+# =============================================================================
+# Monitoring PVC (wsc-sc 사용) - Prometheus / Grafana 영구 저장소
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wsc-prometheus-pvc
+  namespace: monitoring
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: wsc-sc
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wsc-grafana-pvc
+  namespace: monitoring
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: wsc-sc
+  resources:
+    requests:
+      storage: 5Gi

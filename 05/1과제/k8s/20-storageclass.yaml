@@ -1,0 +1,16 @@
+# =============================================================================
+# StorageClass (wsc-sc) - EBS CSI, CMK 암호화, AZ 동적 프로비저닝
+#   ${KMS_KEY_ARN} : wsc-kms CMK ARN
+# =============================================================================
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: wsc-sc
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+  kmsKeyId: ${KMS_KEY_ARN}
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+reclaimPolicy: Delete

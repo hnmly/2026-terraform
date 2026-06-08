@@ -1,0 +1,45 @@
+# grafana/grafana Helm values
+# 설치: helm install grafana grafana/grafana -n monitoring -f grafana-values.yaml
+#
+# - Monitoring NodeGroup에서만 운용, /grafana 경로 서비스
+# - admin / Skill53##
+# - Datasource: Prometheus (http://prometheus-server.monitoring.svc.wsc.local/prometheus)
+# - Dashboard: wsc-eks-dashboard (configmap에서 로드)
+# - 영구 저장소: wsc-grafana-pvc
+
+nodeSelector:
+  type: monitoring
+
+adminUser: admin
+adminPassword: "Skill53##"
+
+persistence:
+  enabled: true
+  existingClaim: wsc-grafana-pvc
+
+# /grafana 서브패스로 서비스
+grafana.ini:
+  server:
+    root_url: "%(protocol)s://%(domain)s/grafana"
+    serve_from_sub_path: true
+
+service:
+  port: 80
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.wsc.local/prometheus
+        isDefault: true
+
+# 대시보드 자동 프로비저닝 (sidecar가 label로 configmap 로드)
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    searchNamespace: monitoring

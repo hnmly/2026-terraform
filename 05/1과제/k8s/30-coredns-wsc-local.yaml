@@ -1,0 +1,35 @@
+# =============================================================================
+# CoreDNS - 도메인을 cluster.local -> wsc.local 로 변경
+#  kubectl apply 후 CoreDNS 재시작: kubectl -n kube-system rollout restart deploy/coredns
+#
+#  ※ Pod가 *.wsc.local 을 사용하려면 kubelet --cluster-domain=wsc.local 도 필요하다.
+#    노드 부트스트랩(nodeadm)에서 clusterDNS domain을 wsc.local로 설정해야 한다.
+#    (README의 노드 kubelet 설정 참고)
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health {
+           lameduck 5s
+        }
+        ready
+        kubernetes wsc.local in-addr.arpa ip6.arpa {
+           pods insecure
+           fallthrough in-addr.arpa ip6.arpa
+           ttl 30
+        }
+        prometheus :9153
+        forward . /etc/resolv.conf {
+           max_concurrent 1000
+        }
+        cache 30
+        loop
+        reload
+        loadbalance
+    }

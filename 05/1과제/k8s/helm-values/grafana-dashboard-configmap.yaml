@@ -1,0 +1,76 @@
+# =============================================================================
+# Grafana Dashboard: wsc-eks-dashboard (6 패널)
+#  Grafana sidecar가 label grafana_dashboard=1 인 ConfigMap을 자동 로드한다.
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wsc-eks-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  wsc-eks-dashboard.json: |
+    {
+      "uid": "wsc-eks-dashboard",
+      "title": "wsc-eks-dashboard",
+      "schemaVersion": 39,
+      "version": 1,
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "TOTAL_NODE_GROUP_COUNT",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "count(count by (label_eks_amazonaws_com_nodegroup) (kube_node_labels))" }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "APP_POD_COUNT",
+          "type": "stat",
+          "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "count(kube_pod_info{namespace=\"wsc\"})" }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "NODE_GROUP_CPU_USAGE",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "targets": [
+            { "refId": "A", "expr": "sum(rate(node_cpu_seconds_total{mode!=\"idle\"}[5m])) by (instance)", "legendFormat": "{{instance}}" }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "NODE_GROUP_MEMORY_USAGE",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "targets": [
+            { "refId": "A", "expr": "sum(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) by (instance)", "legendFormat": "{{instance}}" }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "APP_POD_CPU_USAGE",
+          "type": "bargauge",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+          "targets": [
+            { "refId": "A", "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"wsc\",container=\"wsc-cnt\"}[5m])) by (pod)", "legendFormat": "{{pod}}" }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "APP_POD_MEMORY_USAGE",
+          "type": "bargauge",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+          "targets": [
+            { "refId": "A", "expr": "sum(container_memory_working_set_bytes{namespace=\"wsc\",container=\"wsc-cnt\"}) by (pod)", "legendFormat": "{{pod}}" }
+          ]
+        }
+      ]
+    }

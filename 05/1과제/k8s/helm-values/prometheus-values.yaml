@@ -1,0 +1,33 @@
+# prometheus-community/prometheus Helm values
+# 설치: helm install prometheus prometheus-community/prometheus -n monitoring -f prometheus-values.yaml
+#
+# - Monitoring NodeGroup(type=monitoring)에서만 운용
+# - node-exporter + kube-state-metrics로 Node/Pod CPU/Memory 수집
+# - /prometheus 경로로 서비스 (addon-lb 라우팅)
+# - 영구 저장소: wsc-prometheus-pvc (wsc-sc)
+
+server:
+  prefixURL: /prometheus
+  baseURL: /prometheus
+  nodeSelector:
+    type: monitoring
+  persistentVolume:
+    enabled: true
+    existingClaim: wsc-prometheus-pvc
+  service:
+    servicePort: 80
+  # wsc.local 도메인 환경에서 정상 동작하도록 FQDN 사용
+
+nodeExporter:
+  enabled: true
+
+kube-state-metrics:
+  enabled: true
+
+alertmanager:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false
+
+# node-exporter는 모든 노드에서 수집해야 하므로 DaemonSet은 toleration 허용
