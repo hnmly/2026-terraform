@@ -30,16 +30,15 @@ resource "aws_security_group" "vpce" {
 }
 
 locals {
+  # private DNS 지원되는 표준 인터페이스 엔드포인트
   interface_endpoints = [
     "ec2",
     "ecr.api",
     "ecr.dkr",
-    "s3",
     "sts",
     "logs",
     "elasticloadbalancing",
     "autoscaling",
-    "dynamodb",
   ]
 }
 
@@ -54,4 +53,33 @@ resource "aws_vpc_endpoint" "interface" {
   subnet_ids          = [aws_subnet.this["workload_a"].id, aws_subnet.this["workload_c"].id]
 
   tags = { Name = "wsc-vpce-${replace(each.key, ".", "-")}" }
+}
+
+# S3 Interface Endpoint (Gateway 불가 - workload RT 라우트 0개 유지)
+#  - private DNS 활성화 시 VPC 전체 적용을 위해 inbound-resolver 전용 옵션을 false로
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.s3"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+  security_group_ids  = [aws_security_group.vpce.id]
+  subnet_ids          = [aws_subnet.this["workload_a"].id, aws_subnet.this["workload_c"].id]
+
+  dns_options {
+    private_dns_only_for_inbound_resolver_endpoint = false
+  }
+
+  tags = { Name = "wsc-vpce-s3" }
+}
+
+# DynamoDB Interface Endpoint (private DNS 미지원 -> 비활성화)
+resource "aws_vpc_endpoint" "dynamodb" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.dynamodb"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = false
+  security_group_ids  = [aws_security_group.vpce.id]
+  subnet_ids          = [aws_subnet.this["workload_a"].id, aws_subnet.this["workload_c"].id]
+
+  tags = { Name = "wsc-vpce-dynamodb" }
 }

@@ -36,7 +36,7 @@ resource "aws_s3_object" "static" {
   bucket                 = aws_s3_bucket.static.id
   key                    = each.key
   source                 = "${path.module}/${each.value.src}"
-  etag                   = filemd5("${path.module}/${each.value.src}")
+  source_hash            = filemd5("${path.module}/${each.value.src}")
   content_type           = each.value.ct
   server_side_encryption = "aws:kms"
   kms_key_id             = aws_kms_key.main.arn

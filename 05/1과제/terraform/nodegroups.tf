@@ -145,5 +145,10 @@ resource "aws_eks_node_group" "this" {
     type = each.value.label
   }
 
-  depends_on = [aws_iam_role_policy_attachment.node]
+  depends_on = [
+    aws_iam_role_policy_attachment.node,
+    aws_vpc_endpoint.interface,
+    aws_vpc_endpoint.s3,
+    aws_vpc_endpoint.dynamodb,
+  ]
 }
