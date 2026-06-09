@@ -14,7 +14,7 @@ data "aws_iam_policy_document" "lambda_assume" {
 }
 
 resource "aws_iam_role" "lambda" {
-  name               = "wsc-get-table-function-role"
+  name_prefix        = "wsc-get-table-function-role-"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 

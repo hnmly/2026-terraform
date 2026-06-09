@@ -42,7 +42,7 @@ data "aws_iam_policy_document" "irsa" {
 
 # ---- App SA Role (DynamoDB) ----
 resource "aws_iam_role" "app" {
-  name               = "wsc-app-sa-role"
+  name_prefix        = "wsc-app-sa-role-"
   assume_role_policy = data.aws_iam_policy_document.irsa["app"].json
 }
 
@@ -71,13 +71,13 @@ resource "aws_iam_role_policy" "app" {
 
 # ---- AWS Load Balancer Controller Role ----
 resource "aws_iam_role" "alb" {
-  name               = "wsc-alb-controller-role"
+  name_prefix        = "wsc-alb-controller-role-"
   assume_role_policy = data.aws_iam_policy_document.irsa["alb"].json
 }
 
 resource "aws_iam_policy" "alb" {
-  name   = "wsc-alb-controller-policy"
-  policy = file("${path.module}/policies/alb-controller-policy.json")
+  name_prefix = "wsc-alb-controller-policy-"
+  policy      = file("${path.module}/policies/alb-controller-policy.json")
 }
 
 resource "aws_iam_role_policy_attachment" "alb" {
@@ -87,7 +87,7 @@ resource "aws_iam_role_policy_attachment" "alb" {
 
 # ---- EBS CSI Driver Role ----
 resource "aws_iam_role" "ebs" {
-  name               = "wsc-ebs-csi-role"
+  name_prefix        = "wsc-ebs-csi-role-"
   assume_role_policy = data.aws_iam_policy_document.irsa["ebs"].json
 }
 
@@ -112,7 +112,7 @@ resource "aws_iam_role_policy" "ebs_kms" {
 
 # ---- Fluent Bit Role (CloudWatch Logs) ----
 resource "aws_iam_role" "fluentbit" {
-  name               = "wsc-fluentbit-role"
+  name_prefix        = "wsc-fluentbit-role-"
   assume_role_policy = data.aws_iam_policy_document.irsa["fluentbit"].json
 }
 

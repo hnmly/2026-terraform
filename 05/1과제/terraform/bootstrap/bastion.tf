@@ -40,7 +40,7 @@ data "aws_iam_policy_document" "ec2_assume" {
 }
 
 resource "aws_iam_role" "bastion" {
-  name               = "wsc-bastion-role"
+  name_prefix        = "wsc-bastion-role-"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
   tags               = { Name = "wsc-bastion-role" }
 }
@@ -51,8 +51,8 @@ resource "aws_iam_role_policy_attachment" "bastion_admin" {
 }
 
 resource "aws_iam_instance_profile" "bastion" {
-  name = "wsc-bastion-profile"
-  role = aws_iam_role.bastion.name
+  name_prefix = "wsc-bastion-profile-"
+  role        = aws_iam_role.bastion.name
 }
 
 # ---- Bastion EC2 ----

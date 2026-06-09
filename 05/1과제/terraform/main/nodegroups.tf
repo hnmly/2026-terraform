@@ -7,7 +7,7 @@
 
 # ---- Node IAM Role ----
 resource "aws_iam_role" "node" {
-  name               = "wsc-eks-node-role"
+  name_prefix        = "wsc-eks-node-role-"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
 }
 

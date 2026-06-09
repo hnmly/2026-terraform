@@ -15,7 +15,7 @@ data "aws_iam_policy_document" "eks_assume" {
 }
 
 resource "aws_iam_role" "eks_cluster" {
-  name               = "wsc-eks-cluster-role"
+  name_prefix        = "wsc-eks-cluster-role-"
   assume_role_policy = data.aws_iam_policy_document.eks_assume.json
 }
 
