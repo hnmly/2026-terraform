@@ -75,7 +75,11 @@ kubectl apply -f "$K8S_DIR/30-coredns-wsc-local.yaml"
 kubectl -n kube-system rollout restart deploy/coredns
 envsubst < "$K8S_DIR/20-storageclass.yaml" | kubectl apply -f -
 
-# 7) 애플리케이션
+# 7) ALB Controller Ready 대기 (webhook이 올라와야 Service/Ingress 생성 가능)
+echo ">>> ALB Controller Pod Ready 대기..."
+kubectl -n kube-system rollout status deploy/aws-load-balancer-controller --timeout=180s
+
+# 8) 애플리케이션
 envsubst < "$K8S_DIR/10-app.yaml" | kubectl apply -f -
 
 # 8) Fluent Bit
