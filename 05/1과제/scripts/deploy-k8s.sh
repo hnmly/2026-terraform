@@ -58,6 +58,8 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --set serviceAccount.name=aws-load-balancer-controller \
   --set nodeSelector.type=addon \
   --set region="$REGION" \
+  --set image.repository="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/mirror/aws-load-balancer-controller" \
+  --set image.tag=v3.4.0 \
   --set vpcId="$(aws eks describe-cluster --name $CLUSTER --query cluster.resourcesVpcConfig.vpcId --output text)"
 
 # 5) EBS CSI Driver (addon)
