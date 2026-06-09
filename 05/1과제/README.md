@@ -137,7 +137,17 @@ terraform apply -var="app_alb_dns=${ALB}"
 
 ---
 
-### 7단계 — 채점 (Bastion에서)
+### 7단계 — Lambda 런타임 변경
+
+Terraform provider 제약으로 Lambda는 `python3.13`으로 생성됩니다. 배포 후 콘솔 또는 CLI로 `python3.14`로 변경하세요:
+
+```bash
+aws lambda update-function-configuration --function-name wsc-get-table-function --runtime python3.14 --region ap-northeast-2
+```
+
+---
+
+### 8단계 — 채점 (Bastion에서)
 
 ```bash
 bash ~/mark.sh
