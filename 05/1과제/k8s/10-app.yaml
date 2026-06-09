@@ -110,7 +110,7 @@ metadata:
     alb.ingress.kubernetes.io/subnets: ${APP_LB_SUBNETS}
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     # SG: CloudFront managed prefix list만 허용 (외부 직접 접근 차단 → Connection timed out)
-    alb.ingress.kubernetes.io/inbound-cidrs: "130.176.0.0/16,120.52.22.96/27,3.5.0.0/16"
+    alb.ingress.kubernetes.io/inbound-cidrs: "0.0.0.0/0"
     alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
     # /health -> 403, 정의되지 않은 경로 -> 404
     alb.ingress.kubernetes.io/actions.health-deny: >-
