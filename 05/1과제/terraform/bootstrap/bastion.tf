@@ -89,6 +89,8 @@ resource "aws_instance" "bastion" {
     # eksctl
     curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
     install -m 0755 /tmp/eksctl /usr/local/bin/eksctl
+    # helm
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
   EOF
 
   user_data_replace_on_change = true
