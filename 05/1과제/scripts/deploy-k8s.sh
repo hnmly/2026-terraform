@@ -75,14 +75,16 @@ kubectl apply -f "$K8S_DIR/30-coredns-wsc-local.yaml"
 kubectl -n kube-system rollout restart deploy/coredns
 envsubst < "$K8S_DIR/20-storageclass.yaml" | kubectl apply -f -
 
-# 7) ALB Controller Ready 대기 (webhook이 올라와야 Service/Ingress 생성 가능)
+# 7) ALB Controller Ready 대기
 echo ">>> ALB Controller Pod Ready 대기..."
 kubectl -n kube-system rollout status deploy/aws-load-balancer-controller --timeout=180s
 
-# webhook 인증서(caBundle) 불일치로 Ingress 생성이 막히는 문제 방지 →
-# webhook 설정 제거 (컨트롤러는 webhook 없이도 Ingress를 watch하여 ALB 생성)
-kubectl delete validatingwebhookconfiguration aws-load-balancer-webhook --ignore-not-found
-kubectl delete mutatingwebhookconfiguration aws-load-balancer-webhook --ignore-not-found
+# helm upgrade가 매번 webhook 인증서를 새로 생성 → caBundle(신) vs Pod 인증서(구) 불일치 방지:
+# 컨트롤러 Pod를 재시작해 최신 인증서를 다시 마운트시킨다 (webhook caBundle과 일치시킴)
+echo ">>> 인증서 동기화를 위해 컨트롤러 재시작..."
+kubectl -n kube-system rollout restart deploy/aws-load-balancer-controller
+kubectl -n kube-system rollout status deploy/aws-load-balancer-controller --timeout=180s
+sleep 10
 
 # 8) 애플리케이션
 envsubst < "$K8S_DIR/10-app.yaml" | kubectl apply -f -
