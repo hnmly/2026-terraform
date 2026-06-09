@@ -78,7 +78,7 @@ resource "aws_wafv2_web_acl" "waf" {
 
 # ---- CloudFront OAC (S3) ----
 resource "aws_cloudfront_origin_access_control" "s3" {
-  name                              = "wsc-s3-oac"
+  name                              = "wsc-s3-oac-${random_id.oac.hex}"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"

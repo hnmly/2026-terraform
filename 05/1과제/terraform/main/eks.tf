@@ -60,18 +60,13 @@ resource "aws_eks_cluster" "this" {
 
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster,
-    aws_cloudwatch_log_group.eks,
   ]
 
   tags = { Name = "wsc-eks-cluster" }
 }
 
-# 컨트롤플레인 로그 그룹 (KMS) - EKS가 생성하기 전에 미리 생성
-resource "aws_cloudwatch_log_group" "eks" {
-  name              = "/aws/eks/wsc-eks-cluster/cluster"
-  retention_in_days = 30
-  kms_key_id        = aws_kms_key.main.arn
-}
+# 컨트롤플레인 로그 그룹은 EKS가 자동 생성한다 — Terraform에서 관리하지 않음.
+# (Terraform이 만들면 이미 존재 에러 발생. EKS 로깅 활성화만으로 충분.)
 
 # Bastion -> EKS API(Private endpoint) 443 허용
 resource "aws_security_group_rule" "eks_api_from_bastion" {

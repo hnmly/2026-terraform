@@ -69,6 +69,6 @@ resource "aws_kms_key" "main" {
 }
 
 resource "aws_kms_alias" "main" {
-  name          = "alias/wsc-kms"
+  name_prefix   = "alias/wsc-kms-"
   target_key_id = aws_kms_key.main.key_id
 }
