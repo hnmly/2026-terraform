@@ -84,16 +84,11 @@ resource "aws_cloudfront_origin_access_control" "s3" {
   signing_protocol                  = "sigv4"
 }
 
-data "aws_cloudfront_cache_policy" "optimized" {
-  name = "Managed-CachingOptimized"
-}
-
-data "aws_cloudfront_cache_policy" "disabled" {
-  name = "Managed-CachingDisabled"
-}
-
-data "aws_cloudfront_origin_request_policy" "all_viewer" {
-  name = "Managed-AllViewer"
+# AWS 관리형 정책 ID (모든 계정 공통 고정값 - List 권한 불필요)
+locals {
+  cache_policy_optimized_id   = "658327ea-f89d-4fab-a63d-7e88639e58f6" # Managed-CachingOptimized
+  cache_policy_disabled_id    = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # Managed-CachingDisabled
+  origin_request_allviewer_id = "216adef6-5c7f-47e4-b989-5492eafa07d3" # Managed-AllViewer
 }
 
 locals {
@@ -134,7 +129,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = data.aws_cloudfront_cache_policy.optimized.id
+    cache_policy_id        = local.cache_policy_optimized_id
   }
 
   # /v1/* -> ALB (비캐싱, 모든 메서드 + 쿼리스트링/헤더 전달)
@@ -144,8 +139,8 @@ resource "aws_cloudfront_distribution" "cdn" {
     viewer_protocol_policy   = "redirect-to-https"
     allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods           = ["GET", "HEAD"]
-    cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    cache_policy_id          = local.cache_policy_disabled_id
+    origin_request_policy_id = local.origin_request_allviewer_id
   }
 
   restrictions {

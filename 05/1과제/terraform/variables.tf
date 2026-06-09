@@ -28,6 +28,12 @@ variable "bastion_instance_type" {
   default     = "t3.medium"
 }
 
+variable "bastion_ami" {
+  description = "Bastion AMI (Amazon Linux 2023 x86_64, ap-northeast-2). SSM 조회 권한 불필요하도록 고정."
+  type        = string
+  default     = "ami-00e1a894b4512388e"
+}
+
 variable "ssh_password" {
   description = "Bastion 및 노드 SSH 패스워드 (채점용)"
   type        = string

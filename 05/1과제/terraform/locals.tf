@@ -1,11 +1,6 @@
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 
-# Amazon Linux 2023 (x86_64) AMI - Bastion 및 노드 OS
-data "aws_ssm_parameter" "al2023" {
-  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
-}
-
 locals {
   account_id  = data.aws_caller_identity.current.account_id
   partition   = data.aws_partition.current.partition
