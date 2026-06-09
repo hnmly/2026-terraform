@@ -59,9 +59,17 @@ spec:
           ports:
             - containerPort: 8080
           # 환경변수는 ConfigMap 참조만 사용 (value 직접 명시 금지)
-          envFrom:
-            - configMapRef:
-                name: wsc-config
+          env:
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: wsc-config
+                  key: AWS_REGION
+            - name: TABLE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: wsc-config
+                  key: TABLE_NAME
           livenessProbe:
             httpGet:
               path: /health
@@ -101,6 +109,9 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/subnets: ${APP_LB_SUBNETS}
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    # SG: CloudFront managed prefix list만 허용 (외부 직접 접근 차단 → Connection timed out)
+    alb.ingress.kubernetes.io/inbound-cidrs: "130.176.0.0/16,120.52.22.96/27,3.5.0.0/16"
+    alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
     # /health -> 403, 정의되지 않은 경로 -> 404
     alb.ingress.kubernetes.io/actions.health-deny: >-
       {"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"403","messageBody":"Restrict access to api"}}
