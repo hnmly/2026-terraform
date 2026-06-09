@@ -29,8 +29,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "static" {
 
 resource "aws_s3_object" "static" {
   for_each = {
-    "static/index.html" = { src = "../docker/static/index.html", ct = "text/html" }
-    "static/main.jpeg"  = { src = "../docker/static/main.jpeg", ct = "image/jpeg" }
+    "static/index.html" = { src = "../../docker/static/index.html", ct = "text/html" }
+    "static/main.jpeg"  = { src = "../../docker/static/main.jpeg", ct = "image/jpeg" }
   }
 
   bucket                 = aws_s3_bucket.static.id
