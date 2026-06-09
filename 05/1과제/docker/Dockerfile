@@ -1,14 +1,14 @@
-# 이미지 크기 최소화(<8MB 압축 기준) + curl 포함
-# book은 Go 정적 바이너리(x86_64)이며 수정 없이 그대로 사용한다.
-FROM alpine:3.20
+# 최소 이미지: busybox(curl 포함) + book 바이너리. 압축 ~5MB 목표.
+# book은 Go 정적 바이너리(x86_64)이며 수정 없이 그대로 사용.
+FROM busybox:musl AS base
 
-# 채점 시 컨테이너에 curl 요청을 수행하므로 curl 설치
-RUN apk add --no-cache curl \
-    && rm -rf /var/cache/apk/*
+# busybox는 wget만 있고 curl이 없으므로 정적 curl 바이너리 추가
+FROM alpine:3.20 AS curl-src
+RUN apk add --no-cache curl
 
-WORKDIR /app
+FROM base
+COPY --from=curl-src /usr/bin/curl /usr/bin/curl
 COPY book /app/book
 RUN chmod +x /app/book
-
 EXPOSE 8080
 ENTRYPOINT ["/app/book"]

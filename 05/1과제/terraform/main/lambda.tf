@@ -67,7 +67,7 @@ data "archive_file" "lambda" {
 resource "aws_lambda_function" "get_table" {
   function_name    = "wsc-get-table-function"
   role             = aws_iam_role.lambda.arn
-  runtime          = "python3.12"
+  runtime          = "python3.13"
   handler          = "lambda_function.lambda_handler"
   timeout          = 30
   filename         = data.archive_file.lambda.output_path
