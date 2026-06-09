@@ -7,6 +7,7 @@
 
 # ---- WAF Web ACL ----
 resource "aws_wafv2_web_acl" "waf" {
+  count    = local.waf_exists ? 0 : 1
   provider = aws.use1
   name     = "wsc-waf"
   scope    = "CLOUDFRONT"
@@ -78,7 +79,8 @@ resource "aws_wafv2_web_acl" "waf" {
 
 # ---- CloudFront OAC (S3) ----
 resource "aws_cloudfront_origin_access_control" "s3" {
-  name                              = "wsc-s3-oac-${random_id.oac.hex}"
+  count                             = local.oac_exists ? 0 : 1
+  name                              = "wsc-s3-oac"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
@@ -106,14 +108,14 @@ resource "aws_cloudfront_distribution" "cdn" {
   comment         = "wsc-cdn"
   is_ipv6_enabled = false
   price_class     = "PriceClass_All"
-  web_acl_id      = aws_wafv2_web_acl.waf.arn
+  web_acl_id      = local.waf_arn
 
   # S3 정적 오리진 (origin_path /static -> /index.html = static/index.html)
   origin {
     origin_id                = local.s3_origin_id
     domain_name              = aws_s3_bucket.static.bucket_regional_domain_name
     origin_path              = "/static"
-    origin_access_control_id = aws_cloudfront_origin_access_control.s3.id
+    origin_access_control_id = local.oac_id
   }
 
   # ALB 앱 오리진 (Ingress가 만든 내부 ALB DNS - var.app_alb_dns)

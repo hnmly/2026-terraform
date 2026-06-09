@@ -69,6 +69,7 @@ resource "aws_kms_key" "main" {
 }
 
 resource "aws_kms_alias" "main" {
-  name_prefix   = "alias/wsc-kms-"
+  count         = local.kms_alias_exists ? 0 : 1
+  name          = "alias/wsc-kms"
   target_key_id = aws_kms_key.main.key_id
 }
