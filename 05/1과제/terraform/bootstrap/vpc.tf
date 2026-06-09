@@ -32,6 +32,10 @@ resource "aws_subnet" "this" {
   # public 서브넷만 퍼블릭 IP 자동 할당
   map_public_ip_on_launch = startswith(each.key, "public")
 
+  # 노드 이름을 <INSTANCE_ID>.region.compute.internal 로 만들기 위해 resource-name 사용
+  private_dns_hostname_type_on_launch         = "resource-name"
+  enable_resource_name_dns_a_record_on_launch = true
+
   tags = merge(
     { Name = each.value.name },
     # ALB Controller 서브넷 자동 발견용 태그

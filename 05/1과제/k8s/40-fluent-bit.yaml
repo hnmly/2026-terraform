@@ -102,7 +102,7 @@ spec:
         - operator: Exists
       containers:
         - name: fluent-bit
-          image: public.ecr.aws/aws-observability/aws-for-fluent-bit:stable
+          image: ${ECR_REGISTRY}/ecr-public/aws-observability/aws-for-fluent-bit:stable
           volumeMounts:
             - name: config
               mountPath: /fluent-bit/etc/

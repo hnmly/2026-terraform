@@ -18,6 +18,7 @@ K8S_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../k8s" && pwd)"
 tfout() { terraform -chdir="$TF_DIR" output -raw "$1"; }
 
 export ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+export ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
 export ECR_IMAGE="$(tfout ecr_repository_url):v1.0.0"
 export APP_SA_ROLE_ARN="$(tfout app_sa_role_arn)"
 export FLUENTBIT_ROLE_ARN="$(tfout fluentbit_role_arn)"
@@ -58,7 +59,7 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --set serviceAccount.name=aws-load-balancer-controller \
   --set nodeSelector.type=addon \
   --set region="$REGION" \
-  --set image.repository="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/mirror/aws-load-balancer-controller" \
+  --set image.repository="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/ecr-public/eks/aws-load-balancer-controller" \
   --set image.tag=v3.4.0 \
   --set vpcId="$(aws eks describe-cluster --name $CLUSTER --query cluster.resourcesVpcConfig.vpcId --output text)"
 
@@ -93,11 +94,25 @@ envsubst < "$K8S_DIR/10-app.yaml" | kubectl apply -f -
 envsubst < "$K8S_DIR/40-fluent-bit.yaml" | kubectl apply -f -
 
 # 9) Monitoring (PVC -> prometheus -> grafana -> dashboard -> ingress)
+#    workload 서브넷은 인터넷이 없으므로 모든 이미지를 ECR pull-through cache 경유로 당긴다.
 kubectl apply -f "$K8S_DIR/50-monitoring-pvc.yaml"
+
 helm upgrade --install prometheus prometheus-community/prometheus \
-  -n monitoring -f "$K8S_DIR/helm-values/prometheus-values.yaml"
+  -n monitoring -f "$K8S_DIR/helm-values/prometheus-values.yaml" \
+  --set server.image.repository="${ECR_REGISTRY}/quay/prometheus/prometheus" \
+  --set "prometheus-node-exporter.image.registry=${ECR_REGISTRY}" \
+  --set "prometheus-node-exporter.image.repository=quay/prometheus/node-exporter" \
+  --set "kube-state-metrics.image.registry=${ECR_REGISTRY}" \
+  --set "kube-state-metrics.image.repository=k8s/kube-state-metrics/kube-state-metrics" \
+  --set "configmapReload.prometheus.image.repository=${ECR_REGISTRY}/quay/prometheus-operator/prometheus-config-reloader"
+
 helm upgrade --install grafana grafana/grafana \
-  -n monitoring -f "$K8S_DIR/helm-values/grafana-values.yaml"
+  -n monitoring -f "$K8S_DIR/helm-values/grafana-values.yaml" \
+  --set "global.imageRegistry=${ECR_REGISTRY}/docker-hub" \
+  --set "image.repository=grafana/grafana" \
+  --set "sidecar.image.repository=kiwigrid/k8s-sidecar" \
+  --set "initChownData.image.repository=library/busybox"
+
 kubectl apply -f "$K8S_DIR/helm-values/grafana-dashboard-configmap.yaml"
 envsubst < "$K8S_DIR/60-monitoring-ingress.yaml" | kubectl apply -f -
 

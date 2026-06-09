@@ -25,6 +25,12 @@ variable "image_tag" {
   default = "v1.0.0"
 }
 
+variable "dockerhub_secret_arn" {
+  description = "Docker Hub pull-through cache용 Secrets Manager ARN (grafana 등 docker.io 이미지). 없으면 Docker Hub 캐시 미생성."
+  type        = string
+  default     = ""
+}
+
 variable "app_alb_dns" {
   description = <<-EOT
     wsc-app-lb(Ingress가 생성하는 내부 ALB)의 DNS. K8s 배포 후 생성되므로 그 후 값 주입.
