@@ -46,7 +46,7 @@ resource "aws_iam_role_policy" "lambda" {
 resource "aws_security_group" "lambda" {
   name        = "wsc-lambda-sg"
   description = "Lambda ENI SG"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
 
   egress {
     from_port   = 0
@@ -81,8 +81,8 @@ resource "aws_lambda_function" "get_table" {
 
   vpc_config {
     subnet_ids = [
-      aws_subnet.this["private_a"].id,
-      aws_subnet.this["private_c"].id,
+      local.subnet_ids["wsc-private-a"],
+      local.subnet_ids["wsc-private-c"],
     ]
     security_group_ids = [aws_security_group.lambda.id]
   }

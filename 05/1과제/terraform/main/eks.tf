@@ -36,8 +36,8 @@ resource "aws_eks_cluster" "this" {
 
   vpc_config {
     subnet_ids = [
-      aws_subnet.this["workload_a"].id,
-      aws_subnet.this["workload_c"].id,
+      local.subnet_ids["wsc-workload-a"],
+      local.subnet_ids["wsc-workload-c"],
     ]
     endpoint_private_access = true
     endpoint_public_access  = false
@@ -81,7 +81,7 @@ resource "aws_security_group_rule" "eks_api_from_bastion" {
   to_port                  = 443
   protocol                 = "tcp"
   security_group_id        = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
-  source_security_group_id = aws_security_group.bastion.id
+  source_security_group_id = local.bastion_sg
 }
 
 # ---- OIDC Provider (IRSA) ----

@@ -27,14 +27,14 @@ resource "aws_iam_role_policy_attachment" "node" {
 resource "aws_security_group" "node" {
   name        = "wsc-node-sg"
   description = "Extra SG for nodes - allow SSH from bastion"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
 
   ingress {
     description     = "SSH from bastion"
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id]
+    security_groups = [local.bastion_sg]
   }
 
   egress {
@@ -126,8 +126,8 @@ resource "aws_eks_node_group" "this" {
   instance_types  = [var.node_instance_type]
 
   subnet_ids = [
-    aws_subnet.this["workload_a"].id,
-    aws_subnet.this["workload_c"].id,
+    local.subnet_ids["wsc-workload-a"],
+    local.subnet_ids["wsc-workload-c"],
   ]
 
   scaling_config {
