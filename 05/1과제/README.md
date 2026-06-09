@@ -54,11 +54,7 @@ cd terraform
 terraform init
 
 # -target 의존성으로 VPC/서브넷/IGW/공용RT/SG/IAM + Bastion 이 함께 생성됨
-terraform apply `
-  -target=aws_route.public_igw `
-  -target=aws_route_table_association.public `
-  -target=aws_eip.bastion `
-  -target=aws_instance.bastion
+terraform apply -target "aws_route.public_igw" -target "aws_route_table_association.public" -target "aws_eip.bastion" -target "aws_instance.bastion"
 
 terraform output bastion_public_ip     # Bastion 공인 IP
 ```
