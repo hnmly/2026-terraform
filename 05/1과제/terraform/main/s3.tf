@@ -56,8 +56,8 @@ data "aws_iam_policy_document" "static_bucket" {
     }
     condition {
       test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.cdn.arn]
+      variable = "AWS:SourceAccount"
+      values   = [local.account_id]
     }
   }
 }
