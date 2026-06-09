@@ -156,10 +156,76 @@ bash mark.sh
    맞춥니다. ECR `imageSizeInBytes`(압축)로 확인하고, 초과 시 베이스 이미지를 추가 경량화합니다.
 5. **취약점 0** — `wsc-repo`는 scanOnPush 활성. 스캔 결과에 따라 베이스 이미지 패치가 필요할 수 있습니다.
 
-## 정리
+## 정리 (Teardown)
+
+**삭제는 생성의 역순**입니다: K8s 리소스 → `main`(Bastion) → `bootstrap`(로컬).
+(ALB Ingress를 먼저 지워야 ALB/보안그룹이 깔끔히 삭제됩니다.)
 
 ```bash
-# 클러스터 내부 리소스(특히 ALB Ingress) 먼저 삭제 후 terraform destroy
+# 1) (Bastion) 클러스터 내부 리소스 삭제 - ALB Ingress 포함
+kubectl delete -f k8s/60-monitoring-ingress.yaml --ignore-not-found
+kubectl delete -f k8s/10-app.yaml --ignore-not-found
+helm uninstall grafana prometheus -n monitoring 2>/dev/null
 kubectl delete -f k8s/ --ignore-not-found
-cd terraform && terraform destroy
+
+# 2) (Bastion) main 인프라 삭제
+cd terraform/main
+terraform destroy
+
+# 3) (로컬) bootstrap(VPC+Bastion) 삭제
+cd terraform/bootstrap
+terraform destroy
 ```
+
+### state가 꼬였거나 "already exists"가 반복될 때 (수동 정리)
+
+로컬·Bastion에서 따로 apply해서 **리소스가 중복 생성**되었거나 state가 어긋난 경우,
+`terraform destroy`가 깔끔히 안 될 수 있습니다. 이때는 `wsc-` 접두어 리소스를
+**아래 순서로 직접 삭제**한 뒤 처음부터 다시 배포하세요.
+
+```bash
+R=ap-northeast-2
+
+# (a) EKS 노드그룹 → 클러스터 (삭제에 수 분 소요)
+for ng in wsc-app-node wsc-addon-node wsc-monitoring-node; do
+  aws eks delete-nodegroup --cluster-name wsc-eks-cluster --nodegroup-name $ng --region $R 2>/dev/null
+done
+aws eks delete-cluster --name wsc-eks-cluster --region $R 2>/dev/null
+
+# (b) Bastion EC2, Lambda
+aws ec2 terminate-instances --region $R --instance-ids \
+  $(aws ec2 describe-instances --region $R \
+    --filters Name=tag:Name,Values=wsc-bastion Name=instance-state-name,Values=running,stopped \
+    --query "Reservations[].Instances[].InstanceId" --output text)
+aws lambda delete-function --function-name wsc-get-table-function --region $R 2>/dev/null
+
+# (c) NAT GW → VPC 엔드포인트 → 서브넷/RT/IGW → VPC (VPC가 2개면 둘 다)
+#     콘솔에서 wsc-vpc 들을 "VPC 삭제"하면 연결 리소스가 함께 정리됩니다.
+
+# (d) CloudFront(비활성화 후 삭제) → WAF → OAC
+aws wafv2 delete-web-acl --name wsc-waf --scope CLOUDFRONT --region us-east-1 ... # LockToken 필요
+
+# (e) S3(비우고 삭제), ECR, DynamoDB
+aws s3 rb s3://wsc-static-<ACCOUNT_ID> --force
+aws ecr delete-repository --repository-name wsc-repo --force --region $R
+aws dynamodb delete-table --table-name wsc-table --region $R
+
+# (f) IAM 역할/정책/인스턴스프로파일, KMS alias, 로그그룹
+#  - 역할은 정책 detach/inline 삭제 후 delete-role
+#  - 인스턴스프로파일(wsc-bastion-profile)에서 역할 제거 후 삭제해야 wsc-bastion-role 삭제 가능
+aws iam delete-policy --policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/wsc-alb-controller-policy
+aws kms delete-alias --alias-name alias/wsc-kms --region $R
+aws logs delete-log-group --log-group-name /wsc/pod/log --region $R
+aws logs delete-log-group --log-group-name /aws/eks/wsc-eks-cluster/cluster --region $R
+```
+
+> 정리 후 확인 (모두 비어 있어야 정상):
+> ```bash
+> aws ec2 describe-vpcs --filters Name=tag:Name,Values=wsc-vpc --query "Vpcs[].VpcId" --region ap-northeast-2
+> aws iam list-roles --query "Roles[?starts_with(RoleName,'wsc-')].RoleName"
+> ```
+
+### 재발 방지
+- **반드시 `bootstrap`은 로컬에서, `main`은 Bastion에서** 한 번씩만 apply하세요.
+- 같은 설정을 두 곳에서 apply하지 마세요 (VPC 중복 생성의 원인).
+- 더 확실히 하려면 **S3 원격 백엔드**를 구성해 state를 한 곳에서 공유하세요.
