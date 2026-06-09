@@ -79,6 +79,11 @@ envsubst < "$K8S_DIR/20-storageclass.yaml" | kubectl apply -f -
 echo ">>> ALB Controller Pod Ready 대기..."
 kubectl -n kube-system rollout status deploy/aws-load-balancer-controller --timeout=180s
 
+# webhook 인증서(caBundle) 불일치로 Ingress 생성이 막히는 문제 방지 →
+# webhook 설정 제거 (컨트롤러는 webhook 없이도 Ingress를 watch하여 ALB 생성)
+kubectl delete validatingwebhookconfiguration aws-load-balancer-webhook --ignore-not-found
+kubectl delete mutatingwebhookconfiguration aws-load-balancer-webhook --ignore-not-found
+
 # 8) 애플리케이션
 envsubst < "$K8S_DIR/10-app.yaml" | kubectl apply -f -
 
