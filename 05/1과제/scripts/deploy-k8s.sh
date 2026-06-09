@@ -25,7 +25,6 @@ export ALB_ROLE_ARN="$(tfout alb_controller_role_arn)"
 export EBS_ROLE_ARN="$(tfout ebs_csi_role_arn)"
 export KMS_KEY_ARN="$(tfout kms_key_arn)"
 export LAMBDA_ARN="$(tfout lambda_arn)"
-PRIV=$(tfout private_subnet_ids | tr -d '[]" ' )
 PUB_A=$(aws ec2 describe-subnets --filters Name=tag:Name,Values=wsc-public-a --query "Subnets[0].SubnetId" --output text)
 PUB_C=$(aws ec2 describe-subnets --filters Name=tag:Name,Values=wsc-public-c --query "Subnets[0].SubnetId" --output text)
 PRIV_A=$(aws ec2 describe-subnets --filters Name=tag:Name,Values=wsc-private-a --query "Subnets[0].SubnetId" --output text)
