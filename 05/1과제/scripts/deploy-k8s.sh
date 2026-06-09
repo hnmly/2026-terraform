@@ -108,11 +108,12 @@ helm upgrade --install prometheus prometheus-community/prometheus \
 
 helm upgrade --install grafana grafana/grafana \
   -n monitoring -f "$K8S_DIR/helm-values/grafana-values.yaml" \
-  --set "image.repository=${ECR_REGISTRY}/docker-hub/grafana/grafana" \
+  --set "global.imageRegistry=${ECR_REGISTRY}" \
+  --set "image.repository=docker-hub/grafana/grafana" \
   --set "image.tag=11.1.0" \
-  --set "sidecar.image.repository=${ECR_REGISTRY}/docker-hub/kiwigrid/k8s-sidecar" \
+  --set "sidecar.image.repository=docker-hub/kiwigrid/k8s-sidecar" \
   --set "sidecar.image.tag=1.27.4" \
-  --set "initChownData.image.repository=${ECR_REGISTRY}/docker-hub/library/busybox" \
+  --set "initChownData.image.repository=docker-hub/library/busybox" \
   --set "initChownData.image.tag=1.31.1"
 
 kubectl apply -f "$K8S_DIR/helm-values/grafana-dashboard-configmap.yaml"
