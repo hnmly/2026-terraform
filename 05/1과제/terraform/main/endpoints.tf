@@ -12,11 +12,11 @@ resource "aws_security_group" "vpce" {
   vpc_id      = local.vpc_id
 
   ingress {
-    description = "HTTPS from VPC"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = [local.vpc_cidr]
+    description = "All traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
