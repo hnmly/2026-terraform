@@ -20,6 +20,17 @@ resource "aws_security_group" "alb" {
   tags = { Name = "wsc-alb-sg" }
 }
 
+# ALB → Pod 통신 허용 (EKS 클러스터 SG에 ALB SG 인바운드 추가)
+resource "aws_security_group_rule" "alb_to_pods" {
+  type                     = "ingress"
+  description              = "ALB to Pod ports"
+  from_port                = 0
+  to_port                  = 65535
+  protocol                 = "tcp"
+  security_group_id        = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  source_security_group_id = aws_security_group.alb.id
+}
+
 # ---- wsc-app-lb (internal, private subnets) ----
 resource "aws_lb" "app" {
   name               = "wsc-app-lb"
