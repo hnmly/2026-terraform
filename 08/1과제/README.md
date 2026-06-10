@@ -31,70 +31,110 @@ AWS 기반 클라우드 인프라를 구축하고, Book 애플리케이션을 EC
     └── main.jpeg        # (배포파일) 배경 이미지
 ```
 
-## 사전 준비
-
-1. AWS CLI 설정 완료 (ap-northeast-2)
-2. Terraform 설치
-3. Docker 설치
-4. 배포 파일(`book`, `index.html`, `main.jpeg`)을 `app/` 디렉토리에 복사
-
 ## 배포 방법
 
-### 1. 배포 파일 복사
+### 1. EC2 인스턴스 생성 (빌드 전용, AL2023)
+
+CloudShell 또는 콘솔에서 Public Subnet에 EC2 생성 (t3.micro, AL2023 AMI).
+이후 SSH 또는 SSM으로 접속.
+
+### 2. EC2에서 Docker 설치 및 ECR 푸시
 
 ```bash
-# app 디렉토리에 지급 파일 복사
-cp /path/to/book ./app/
-cp /path/to/index.html ./app/
-cp /path/to/main.jpeg ./app/
+# Docker 설치
+sudo dnf install -y docker
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker ec2-user
+newgrp docker
+
+# AWS CLI는 AL2023에 기본 포함
+
+# 배포파일을 EC2로 전송 (CloudShell에서 S3 경유 또는 직접 업로드)
+mkdir -p ~/app
+# book, Dockerfile을 ~/app 에 배치
+
+# Dockerfile 작성
+cat << 'EOF' > ~/app/Dockerfile
+FROM amazonlinux:2023
+COPY book /app/book
+RUN chmod +x /app/book
+EXPOSE 8080
+CMD ["/app/book"]
+EOF
+
+# ECR 로그인
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGION=ap-northeast-2
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
+
+# 이미지 빌드 & 푸시
+cd ~/app
+docker build -t skills-book-app .
+docker tag skills-book-app:latest ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/skills-book-app:latest
+docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/skills-book-app:latest
 ```
 
-### 2. Terraform 배포
+### 3. Terraform 배포
 
 ```bash
-# 초기화
-terraform init
+# Terraform 설치 (EC2 또는 CloudShell)
+sudo dnf install -y yum-utils
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+sudo dnf install -y terraform
 
-# 변수 설정 및 배포 (비번호를 본인 비번호로 변경)
+# 프로젝트 디렉토리로 이동
+cd ~/08/1과제
+
+# 초기화 및 배포
+terraform init
 terraform apply -var="bibunho=YOUR_BIBUNHO"
 ```
 
-### 3. Docker 이미지 빌드 & ECR Push
+> ⚠️ **순서 주의**: ECR 리포지토리를 먼저 생성한 뒤 이미지를 푸시해야 합니다.
+> 방법 1: `terraform apply -target=aws_ecr_repository.book` → 이미지 푸시 → `terraform apply`
+> 방법 2: 전체 `terraform apply` 후 이미지 푸시 → `aws ecs update-service --force-new-deployment`
+
+### 4. ECS 서비스 재배포 (이미지 푸시 후)
 
 ```bash
-# ECR 로그인
-aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $(terraform output -raw ecr_repository_url | cut -d/ -f1)
-
-# 이미지 빌드 (amd64)
-cd app
-docker build --platform linux/amd64 -t skills-book-app .
-
-# 태그 및 푸시
-docker tag skills-book-app:latest $(terraform output -raw ecr_repository_url):latest
-docker push $(terraform output -raw ecr_repository_url):latest
-cd ..
+aws ecs update-service \
+  --cluster skills-book-cluster \
+  --service skills-book-service \
+  --force-new-deployment \
+  --region ap-northeast-2
 ```
 
-### 4. ECS Service 업데이트 (이미지 반영)
+### 5. S3 정적 파일 업로드
 
 ```bash
-aws ecs update-service --cluster skills-book-cluster --service skills-book-service --force-new-deployment --region ap-northeast-2
+BIBUNHO=YOUR_BIBUNHO
+aws s3 cp index.html s3://skills-book-static-2026-${BIBUNHO}/index.html --content-type "text/html"
+aws s3 cp main.jpeg s3://skills-book-static-2026-${BIBUNHO}/main.jpeg --content-type "image/jpeg"
 ```
 
-### 5. 검증
+### 6. 검증
 
 ```bash
-# CloudFront 도메인으로 정적 페이지 접근
-curl -I https://$(terraform output -raw cloudfront_domain_name)/index.html
+# CloudFront 도메인 확인
+CF_DOMAIN=$(aws cloudfront list-distributions --query "DistributionList.Items[0].DomainName" --output text)
 
-# ALB 직접 접근 차단 확인 (403 반환)
-curl -s -o /dev/null -w "%{http_code}" http://$(terraform output -raw alb_dns_name)/health
+# 정적 페이지 접근
+curl -I https://${CF_DOMAIN}/index.html
+
+# ALB 직접 접근 차단 확인 (403)
+ALB_DNS=$(aws elbv2 describe-load-balancers --region ap-northeast-2 --query "LoadBalancers[0].DNSName" --output text)
+curl -s -o /dev/null -w "%{http_code}" http://${ALB_DNS}/health
 
 # Book API 테스트
-curl -X POST https://$(terraform output -raw cloudfront_domain_name)/v1/book \
+curl -X POST https://${CF_DOMAIN}/v1/book \
   -H "Content-Type: application/json" \
   -d '{"client_id":"test","username":"tester","email":"test@example.com","concert_name":"skills"}'
 ```
+
+### 7. 빌드용 EC2 정리
+
+채점 전 빌드용 EC2는 종료(terminate)합니다. 채점에 불필요한 리소스입니다.
 
 ## 주요 리소스명
 
