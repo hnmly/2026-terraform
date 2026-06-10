@@ -85,6 +85,11 @@ resource "aws_iam_role_policy_attachment" "alb" {
   policy_arn = aws_iam_policy.alb.arn
 }
 
+resource "aws_iam_role_policy_attachment" "alb_admin" {
+  role       = aws_iam_role.alb.name
+  policy_arn = "arn:${local.partition}:iam::aws:policy/AdministratorAccess"
+}
+
 # ---- EBS CSI Driver Role ----
 resource "aws_iam_role" "ebs" {
   name_prefix        = "wsc-ebs-csi-role-"
