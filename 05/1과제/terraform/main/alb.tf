@@ -6,10 +6,10 @@ resource "aws_security_group" "alb" {
   name   = "wsc-alb-sg"
   vpc_id = local.vpc_id
   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront.id]
   }
   egress {
     from_port   = 0

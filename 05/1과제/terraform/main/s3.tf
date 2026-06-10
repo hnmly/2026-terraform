@@ -10,10 +10,10 @@ resource "aws_s3_bucket" "static" {
 
 resource "aws_s3_bucket_public_access_block" "static" {
   bucket                  = aws_s3_bucket.static.id
-  block_public_acls       = true
-  ignore_public_acls      = true
-  block_public_policy     = true
-  restrict_public_buckets = true
+  block_public_acls       = false
+  ignore_public_acls      = false
+  block_public_policy     = false
+  restrict_public_buckets = false
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "static" {
@@ -47,17 +47,12 @@ resource "aws_s3_object" "static" {
 # CloudFront OAC 접근용 버킷 정책 (cloudfront.tf의 distribution 참조)
 data "aws_iam_policy_document" "static_bucket" {
   statement {
-    sid       = "AllowCloudFrontOAC"
+    sid       = "AllowAll"
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.static.arn}/*"]
     principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceAccount"
-      values   = [local.account_id]
+      type        = "*"
+      identifiers = ["*"]
     }
   }
 }
