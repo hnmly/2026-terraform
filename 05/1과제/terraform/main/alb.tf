@@ -103,8 +103,8 @@ resource "aws_lb_target_group" "prometheus" {
   vpc_id      = local.vpc_id
   target_type = "ip"
   health_check {
-    path    = "/prometheus/-/healthy"
-    matcher = "200"
+    path    = "/-/healthy"
+    matcher = "200,301,302"
   }
   tags = { Name = "wsc-prometheus-tg" }
 }
@@ -116,8 +116,8 @@ resource "aws_lb_target_group" "grafana" {
   vpc_id      = local.vpc_id
   target_type = "ip"
   health_check {
-    path    = "/grafana/api/health"
-    matcher = "200"
+    path    = "/api/health"
+    matcher = "200,301,302"
   }
   tags = { Name = "wsc-grafana-tg" }
 }
