@@ -30,12 +30,3 @@ variable "dockerhub_secret_arn" {
   type        = string
   default     = ""
 }
-
-variable "app_alb_dns" {
-  description = <<-EOT
-    wsc-app-lb(Ingress가 생성하는 내부 ALB)의 DNS. K8s 배포 후 생성되므로 그 후 값 주입.
-    그 전에는 placeholder로 두고 CloudFront만 임시 생성.
-  EOT
-  type        = string
-  default     = "placeholder-app-lb.elb.amazonaws.com"
-}

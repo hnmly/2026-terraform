@@ -1,0 +1,40 @@
+# =============================================================================
+# TargetGroupBinding — Terraform이 만든 TG에 Pod IP를 자동 등록
+#  ALB Controller가 TargetGroupBinding CRD를 watch하여 Pod 변동 시 자동 등록/해제
+#  ${APP_TG_ARN}, ${PROMETHEUS_TG_ARN}, ${GRAFANA_TG_ARN} 은 envsubst로 주입
+# =============================================================================
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: wsc-app-tgb
+  namespace: wsc
+spec:
+  targetGroupARN: ${APP_TG_ARN}
+  targetType: ip
+  serviceRef:
+    name: wsc-svc
+    port: 80
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: wsc-prometheus-tgb
+  namespace: monitoring
+spec:
+  targetGroupARN: ${PROMETHEUS_TG_ARN}
+  targetType: ip
+  serviceRef:
+    name: prometheus-server
+    port: 80
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: wsc-grafana-tgb
+  namespace: monitoring
+spec:
+  targetGroupARN: ${GRAFANA_TG_ARN}
+  targetType: ip
+  serviceRef:
+    name: grafana
+    port: 80

@@ -26,6 +26,9 @@ export ALB_ROLE_ARN="$(tfout alb_controller_role_arn)"
 export EBS_ROLE_ARN="$(tfout ebs_csi_role_arn)"
 export KMS_KEY_ARN="$(tfout kms_key_arn)"
 export LAMBDA_ARN="$(tfout lambda_arn)"
+export APP_TG_ARN="$(tfout app_tg_arn)"
+export PROMETHEUS_TG_ARN="$(tfout prometheus_tg_arn)"
+export GRAFANA_TG_ARN="$(tfout grafana_tg_arn)"
 PUB_A=$(aws ec2 describe-subnets --filters Name=tag:Name,Values=wsc-public-a --query "Subnets[0].SubnetId" --output text)
 PUB_C=$(aws ec2 describe-subnets --filters Name=tag:Name,Values=wsc-public-c --query "Subnets[0].SubnetId" --output text)
 PRIV_A=$(aws ec2 describe-subnets --filters Name=tag:Name,Values=wsc-private-a --query "Subnets[0].SubnetId" --output text)
@@ -117,7 +120,9 @@ helm upgrade --install grafana grafana/grafana \
   --set "initChownData.image.tag=1.31.1"
 
 kubectl apply -f "$K8S_DIR/helm-values/grafana-dashboard-configmap.yaml"
-envsubst < "$K8S_DIR/60-monitoring-ingress.yaml" | kubectl apply -f -
+
+# 10) TargetGroupBinding (Terraform TG에 Pod 자동 등록)
+envsubst < "$K8S_DIR/70-target-group-bindings.yaml" | kubectl apply -f -
 
 echo "배포 완료. ALB 생성까지 수 분 소요."
 echo "wsc-app-lb DNS 확인 후 terraform 변수 app_alb_dns 에 넣고 재적용하여 CloudFront origin 연결:"
