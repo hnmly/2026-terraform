@@ -55,6 +55,17 @@ data "aws_iam_policy_document" "kms" {
       identifiers = ["arn:${local.partition}:iam::${local.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"]
     }
   }
+
+  # CloudFront가 SSE-KMS S3 객체를 복호화하도록 허용 (정적 페이지 200)
+  statement {
+    sid       = "AllowCloudFrontDecrypt"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = ["*"]
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+  }
 }
 
 resource "aws_kms_key" "main" {
