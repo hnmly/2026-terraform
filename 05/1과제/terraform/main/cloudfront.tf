@@ -121,7 +121,7 @@ resource "aws_cloudfront_distribution" "cdn" {
   # ALB 앱 오리진 (Ingress가 만든 내부 ALB DNS - var.app_alb_dns)
   origin {
     origin_id   = local.alb_origin_id
-    domain_name = aws_lb.app.dns_name
+    domain_name = var.app_alb_dns
     custom_origin_config {
       http_port              = 80
       https_port             = 443
