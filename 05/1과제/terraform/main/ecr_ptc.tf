@@ -30,29 +30,8 @@ resource "aws_ecr_pull_through_cache_rule" "docker_hub" {
   credential_arn        = var.dockerhub_secret_arn
 }
 
-# pull-through cache가 자동 생성하는 리포지토리에 대해 노드 역할이 이미지를 만들고/당길 수 있도록 권한 부여
-data "aws_iam_policy_document" "ecr_ptc" {
-  statement {
-    sid    = "AllowPullThroughCache"
-    effect = "Allow"
-    principals {
-      type        = "AWS"
-      identifiers = [aws_iam_role.node.arn]
-    }
-    actions = [
-      "ecr:BatchImportUpstreamImage",
-      "ecr:CreateRepository",
-      "ecr:GetDownloadUrlForLayer",
-      "ecr:BatchGetImage",
-      "ecr:BatchCheckLayerAvailability",
-    ]
-    resources = ["*"]
-  }
-}
-
-resource "aws_ecr_registry_policy" "ptc" {
-  policy = data.aws_iam_policy_document.ecr_ptc.json
-}
+# pull-through cache는 노드 역할의 인라인 정책(아래 node_ptc)으로 충분하다.
+# (registry policy는 크로스계정용이라 불필요)
 
 # 노드 역할에 pull-through cache 생성/임포트 권한 추가
 resource "aws_iam_role_policy" "node_ptc" {
