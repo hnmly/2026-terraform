@@ -1,6 +1,5 @@
 resource "aws_kms_key" "dynamodb" {
-  description = "KMS key for DynamoDB skills-book-booking"
-  tags        = { Name = "skills-book-ddb" }
+  description = "KMS key for skills-book-booking"
 }
 
 resource "aws_kms_alias" "dynamodb" {
@@ -22,6 +21,4 @@ resource "aws_dynamodb_table" "booking" {
     enabled     = true
     kms_key_arn = aws_kms_key.dynamodb.arn
   }
-
-  tags = { Name = "skills-book-booking" }
 }

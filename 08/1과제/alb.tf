@@ -2,10 +2,8 @@ resource "aws_lb" "main" {
   name               = "skills-book-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
+  security_groups    = [aws_security_group.all.id]
   subnets            = aws_subnet.public[*].id
-
-  tags = { Name = "skills-book-alb" }
 }
 
 resource "aws_lb_target_group" "ecs" {
@@ -16,15 +14,8 @@ resource "aws_lb_target_group" "ecs" {
   target_type = "ip"
 
   health_check {
-    path                = "/health"
-    protocol            = "HTTP"
-    healthy_threshold   = 2
-    unhealthy_threshold = 3
-    timeout             = 5
-    interval            = 30
+    path = "/health"
   }
-
-  tags = { Name = "skills-book-tg" }
 }
 
 resource "aws_lb_listener" "http" {

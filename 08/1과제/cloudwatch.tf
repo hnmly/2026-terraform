@@ -1,10 +1,9 @@
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/skills-book-app"
   retention_in_days = 7
-  tags              = { Name = "/ecs/skills-book-app" }
 }
 
-resource "aws_cloudwatch_log_metric_filter" "filter_4xx" {
+resource "aws_cloudwatch_log_metric_filter" "f4xx" {
   name           = "skills-book-4xx-filter"
   log_group_name = aws_cloudwatch_log_group.ecs.name
   pattern        = "{ $.status >= 400 && $.status < 500 }"
@@ -16,7 +15,7 @@ resource "aws_cloudwatch_log_metric_filter" "filter_4xx" {
   }
 }
 
-resource "aws_cloudwatch_log_metric_filter" "filter_5xx" {
+resource "aws_cloudwatch_log_metric_filter" "f5xx" {
   name           = "skills-book-5xx-filter"
   log_group_name = aws_cloudwatch_log_group.ecs.name
   pattern        = "{ $.status >= 500 && $.status < 600 }"
@@ -28,7 +27,7 @@ resource "aws_cloudwatch_log_metric_filter" "filter_5xx" {
   }
 }
 
-resource "aws_cloudwatch_metric_alarm" "alarm_4xx" {
+resource "aws_cloudwatch_metric_alarm" "a4xx" {
   alarm_name          = "skills-book-4xx-alarm"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1
@@ -39,10 +38,9 @@ resource "aws_cloudwatch_metric_alarm" "alarm_4xx" {
   threshold           = 1
   datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
-  alarm_description   = "4xx error count >= 1"
 }
 
-resource "aws_cloudwatch_metric_alarm" "alarm_5xx" {
+resource "aws_cloudwatch_metric_alarm" "a5xx" {
   alarm_name          = "skills-book-5xx-alarm"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1
@@ -53,5 +51,4 @@ resource "aws_cloudwatch_metric_alarm" "alarm_5xx" {
   threshold           = 1
   datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
-  alarm_description   = "5xx error count >= 1"
 }

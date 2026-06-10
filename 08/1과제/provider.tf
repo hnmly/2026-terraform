@@ -4,14 +4,13 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 }
 
 provider "aws" {
-  region = var.region
-}
-
-provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1"
+  region = "ap-northeast-2"
 }

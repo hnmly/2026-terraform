@@ -2,8 +2,20 @@ resource "aws_ecr_repository" "book" {
   name                 = "skills-book-app"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
+  tags                 = { Name = "skills-book-ecr" }
+}
 
-  tags = { Name = "skills-book-ecr" }
+resource "null_resource" "docker_push" {
+  depends_on = [aws_ecr_repository.book]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.ap-northeast-2.amazonaws.com
+      docker build -t skills-book-app ${path.module}/app
+      docker tag skills-book-app:latest ${aws_ecr_repository.book.repository_url}:latest
+      docker push ${aws_ecr_repository.book.repository_url}:latest
+    EOT
+  }
 }
 
 resource "aws_ecs_cluster" "main" {
@@ -24,17 +36,11 @@ resource "aws_ecs_task_definition" "book" {
     name      = "skills-book-container"
     image     = "${aws_ecr_repository.book.repository_url}:latest"
     essential = true
-
-    portMappings = [{
-      containerPort = 8080
-      protocol      = "tcp"
-    }]
-
+    portMappings = [{ containerPort = 8080, protocol = "tcp" }]
     environment = [
       { name = "AWS_REGION", value = "ap-northeast-2" },
       { name = "TABLE_NAME", value = "skills-book-booking" }
     ]
-
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -44,8 +50,6 @@ resource "aws_ecs_task_definition" "book" {
       }
     }
   }])
-
-  tags = { Name = "skills-book-task" }
 }
 
 resource "aws_ecs_service" "book" {
@@ -57,7 +61,7 @@ resource "aws_ecs_service" "book" {
 
   network_configuration {
     subnets          = aws_subnet.private[*].id
-    security_groups  = [aws_security_group.ecs.id]
+    security_groups  = [aws_security_group.all.id]
     assign_public_ip = false
   }
 
@@ -67,7 +71,6 @@ resource "aws_ecs_service" "book" {
     container_port   = 8080
   }
 
-  depends_on = [aws_lb_listener.http]
-
-  tags = { Name = "skills-book-service" }
+  depends_on = [aws_lb_listener.http, null_resource.docker_push]
+  tags       = { Name = "skills-book-service" }
 }
