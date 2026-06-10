@@ -11,8 +11,14 @@ data "aws_ami" "al2023_tokyo" {
   provider    = aws.tokyo
   most_recent = true
   owners      = ["amazon"]
-  filter { name = "name"; values = ["al2023-ami-2023*-x86_64"] }
-  filter { name = "state"; values = ["available"] }
+  filter {
+    name = "name"
+    values = ["al2023-ami-2023*-x86_64"]
+  }
+  filter {
+    name = "state"
+    values = ["available"]
+  }
 }
 
 data "aws_ec2_managed_prefix_list" "lattice" {
@@ -111,15 +117,35 @@ resource "aws_route_table_association" "m2_service_public" {
 resource "aws_security_group" "m2_client" {
   provider = aws.tokyo
   vpc_id   = aws_vpc.m2_client.id
-  ingress { from_port = 80; to_port = 80; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"] }
-  egress  { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_security_group" "m2_service" {
   provider = aws.tokyo
   vpc_id   = aws_vpc.m2_service.id
-  ingress { from_port = 8080; to_port = 8080; protocol = "tcp"; prefix_list_ids = [data.aws_ec2_managed_prefix_list.lattice.id] }
-  egress  { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port = 8080
+    to_port = 8080
+    protocol = "tcp"
+    prefix_list_ids = [data.aws_ec2_managed_prefix_list.lattice.id]
+  }
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # IAM for Client EC2 (vpc-lattice:ListServices)
@@ -187,8 +213,18 @@ resource "aws_vpclattice_service_network" "m2" {
 resource "aws_security_group" "m2_lattice_assoc" {
   provider = aws.tokyo
   vpc_id   = aws_vpc.m2_client.id
-  ingress { from_port = 80; to_port = 80; protocol = "tcp"; cidr_blocks = ["10.61.0.0/16"] }
-  egress  { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["10.61.0.0/16"]
+  }
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_vpclattice_service_network_vpc_association" "m2_client" {

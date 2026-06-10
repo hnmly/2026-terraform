@@ -11,8 +11,14 @@ data "aws_ami" "al2023_seoul" {
   provider    = aws.seoul
   most_recent = true
   owners      = ["amazon"]
-  filter { name = "name"; values = ["al2023-ami-2023*-x86_64"] }
-  filter { name = "state"; values = ["available"] }
+  filter {
+    name = "name"
+    values = ["al2023-ami-2023*-x86_64"]
+  }
+  filter {
+    name = "state"
+    values = ["available"]
+  }
 }
 
 resource "aws_vpc" "m1" {
@@ -61,16 +67,41 @@ resource "aws_route_table_association" "m1_public" {
 resource "aws_security_group" "m1_ec2" {
   provider = aws.seoul
   vpc_id   = aws_vpc.m1.id
-  ingress { from_port = 8080; to_port = 8080; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"] }
-  ingress { from_port = 22; to_port = 22; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"] }
-  egress  { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port = 8080
+    to_port = 8080
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_security_group" "m1_docdb" {
   provider = aws.seoul
   vpc_id   = aws_vpc.m1.id
-  ingress { from_port = 27017; to_port = 27017; protocol = "tcp"; security_groups = [aws_security_group.m1_ec2.id] }
-  egress  { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port = 27017
+    to_port = 27017
+    protocol = "tcp"
+    security_groups = [aws_security_group.m1_ec2.id]
+  }
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # KMS
@@ -92,7 +123,10 @@ resource "aws_docdb_cluster_parameter_group" "m1" {
   provider = aws.seoul
   family   = "docdb5.0"
   name     = "skills-nosql-params"
-  parameter { name = "tls"; value = "enabled" }
+  parameter {
+    name  = "tls"
+    value = "enabled"
+  }
 }
 
 resource "aws_docdb_cluster" "m1" {

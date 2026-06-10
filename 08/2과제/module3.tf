@@ -11,8 +11,14 @@ data "aws_ami" "al2023_sg" {
   provider    = aws.singapore
   most_recent = true
   owners      = ["amazon"]
-  filter { name = "name"; values = ["al2023-ami-2023*-x86_64"] }
-  filter { name = "state"; values = ["available"] }
+  filter {
+    name = "name"
+    values = ["al2023-ami-2023*-x86_64"]
+  }
+  filter {
+    name = "state"
+    values = ["available"]
+  }
 }
 
 data "aws_caller_identity" "current" {}
@@ -58,7 +64,12 @@ resource "aws_security_group" "m3_protected" {
   vpc_id   = aws_vpc.m3.id
   name     = "skills-ceh-protected-sg"
   # No inbound rules
-  egress { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   tags = { Name = "skills-ceh-protected-sg" }
 }
 
