@@ -114,7 +114,7 @@ resource "aws_lb_target_group" "prometheus" {
   vpc_id      = local.vpc_id
   target_type = "ip"
   health_check {
-    path    = "/-/healthy"
+    path    = "/prometheus/-/healthy"
     matcher = "200,301,302"
   }
   tags = { Name = "wsc-prometheus-tg" }
