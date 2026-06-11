@@ -43,8 +43,10 @@ export DOCDB_PORT=27017
 export DOCDB_TLS=true
 export DOCDB_CA_PATH=/opt/skills-nosql/global-bundle.pem
 
-./run_seed.sh
+cd /opt/skills-nosql
 nohup ./run_app.sh &
+sleep 5
+./run_seed.sh
 ```
 
 ## 모듈2: VPC Lattice (도쿄, ~3분)
