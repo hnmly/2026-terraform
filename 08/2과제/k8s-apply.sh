@@ -24,8 +24,7 @@ NODE_PROFILE=$(terraform output -raw node_instance_profile)
 helm repo add kedacore https://kedacore.github.io/charts
 helm repo update
 helm upgrade --install keda kedacore/keda --namespace keda \
-  --set serviceAccount.operator.annotations."eks\.amazonaws\.com/role-arn"="$KEDA_ROLE" \
-  --wait
+  --set serviceAccount.operator.annotations."eks\.amazonaws\.com/role-arn"="$KEDA_ROLE"
 
 # Install Karpenter via Helm
 helm repo add karpenter https://charts.karpenter.sh
@@ -33,8 +32,7 @@ helm repo update
 helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --version 1.4.0 --namespace karpenter \
   --set "settings.clusterName=$CLUSTER" \
   --set "settings.clusterEndpoint=$(aws eks describe-cluster --name $CLUSTER --region $REGION --query cluster.endpoint --output text)" \
-  --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$KARPENTER_ROLE" \
-  --wait
+  --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$KARPENTER_ROLE"
 
 # Worker SA
 cat <<EOF | kubectl apply -f -
