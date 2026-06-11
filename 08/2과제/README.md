@@ -98,8 +98,8 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 aws eks update-kubeconfig --region us-west-2 --name skills-sqs-cluster
 
 # K8s 리소스 배포
-chmod +x k8s-apply.sh
-./k8s-apply.sh
+chmod +x ../k8s-apply.sh
+bash ../k8s-apply.sh
 ```
 
 ## 파일 구조
