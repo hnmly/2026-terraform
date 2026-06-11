@@ -3,32 +3,28 @@
 ###############################################################################
 
 data "aws_availability_zones" "tokyo" {
-  provider = aws.tokyo
-  state    = "available"
+  state = "available"
 }
 
 data "aws_ami" "al2023_tokyo" {
-  provider    = aws.tokyo
   most_recent = true
   owners      = ["amazon"]
   filter {
-    name = "name"
+    name   = "name"
     values = ["al2023-ami-2023*-x86_64"]
   }
   filter {
-    name = "state"
+    name   = "state"
     values = ["available"]
   }
 }
 
 data "aws_ec2_managed_prefix_list" "lattice" {
-  provider = aws.tokyo
-  name     = "com.amazonaws.ap-northeast-1.vpc-lattice"
+  name = "com.amazonaws.ap-northeast-1.vpc-lattice"
 }
 
 # VPCs
 resource "aws_vpc" "m2_client" {
-  provider             = aws.tokyo
   cidr_block           = "10.61.0.0/16"
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -36,7 +32,6 @@ resource "aws_vpc" "m2_client" {
 }
 
 resource "aws_vpc" "m2_service" {
-  provider             = aws.tokyo
   cidr_block           = "10.62.0.0/16"
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -44,7 +39,6 @@ resource "aws_vpc" "m2_service" {
 }
 
 resource "aws_subnet" "m2_client" {
-  provider                = aws.tokyo
   vpc_id                  = aws_vpc.m2_client.id
   cidr_block              = "10.61.1.0/24"
   availability_zone       = data.aws_availability_zones.tokyo.names[0]
@@ -52,20 +46,17 @@ resource "aws_subnet" "m2_client" {
 }
 
 resource "aws_subnet" "m2_service" {
-  provider          = aws.tokyo
   vpc_id            = aws_vpc.m2_service.id
   cidr_block        = "10.62.1.0/24"
   availability_zone = data.aws_availability_zones.tokyo.names[0]
 }
 
 resource "aws_internet_gateway" "m2_client" {
-  provider = aws.tokyo
-  vpc_id   = aws_vpc.m2_client.id
+  vpc_id = aws_vpc.m2_client.id
 }
 
 resource "aws_route_table" "m2_client" {
-  provider = aws.tokyo
-  vpc_id   = aws_vpc.m2_client.id
+  vpc_id = aws_vpc.m2_client.id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.m2_client.id
@@ -73,19 +64,16 @@ resource "aws_route_table" "m2_client" {
 }
 
 resource "aws_route_table_association" "m2_client" {
-  provider       = aws.tokyo
   subnet_id      = aws_subnet.m2_client.id
   route_table_id = aws_route_table.m2_client.id
 }
 
-# Service VPC needs NAT for userdata
+# Service VPC needs IGW for userdata
 resource "aws_internet_gateway" "m2_service" {
-  provider = aws.tokyo
-  vpc_id   = aws_vpc.m2_service.id
+  vpc_id = aws_vpc.m2_service.id
 }
 
 resource "aws_subnet" "m2_service_public" {
-  provider                = aws.tokyo
   vpc_id                  = aws_vpc.m2_service.id
   cidr_block              = "10.62.2.0/24"
   availability_zone       = data.aws_availability_zones.tokyo.names[0]
@@ -93,8 +81,7 @@ resource "aws_subnet" "m2_service_public" {
 }
 
 resource "aws_route_table" "m2_service" {
-  provider = aws.tokyo
-  vpc_id   = aws_vpc.m2_service.id
+  vpc_id = aws_vpc.m2_service.id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.m2_service.id
@@ -102,53 +89,49 @@ resource "aws_route_table" "m2_service" {
 }
 
 resource "aws_route_table_association" "m2_service" {
-  provider       = aws.tokyo
   subnet_id      = aws_subnet.m2_service.id
   route_table_id = aws_route_table.m2_service.id
 }
 
 resource "aws_route_table_association" "m2_service_public" {
-  provider       = aws.tokyo
   subnet_id      = aws_subnet.m2_service_public.id
   route_table_id = aws_route_table.m2_service.id
 }
 
 # Security Groups
 resource "aws_security_group" "m2_client" {
-  provider = aws.tokyo
-  vpc_id   = aws_vpc.m2_client.id
+  vpc_id = aws_vpc.m2_client.id
   ingress {
-    from_port = 80
-    to_port = 80
-    protocol = "tcp"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
   egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
 resource "aws_security_group" "m2_service" {
-  provider = aws.tokyo
-  vpc_id   = aws_vpc.m2_service.id
+  vpc_id = aws_vpc.m2_service.id
   ingress {
-    from_port = 8080
-    to_port = 8080
-    protocol = "tcp"
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
     prefix_list_ids = [data.aws_ec2_managed_prefix_list.lattice.id]
   }
   egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
-# IAM for Client EC2 (vpc-lattice:ListServices)
+# IAM for Client EC2
 resource "aws_iam_role" "m2_client" {
   name = "skills-lattice-client-role"
   assume_role_policy = jsonencode({
@@ -178,70 +161,60 @@ resource "aws_iam_instance_profile" "m2_client" {
 
 # Service EC2
 resource "aws_instance" "m2_service" {
-  provider               = aws.tokyo
   ami                    = data.aws_ami.al2023_tokyo.id
   instance_type          = "t3.micro"
   subnet_id              = aws_subnet.m2_service.id
   vpc_security_group_ids = [aws_security_group.m2_service.id]
-
-  user_data = file("${path.module}/app/module2/service/lattice-order-service-userdata.sh")
-
-  tags = { Name = "skills-lattice-service-ec2" }
+  user_data              = file("${path.module}/../app/module2/service/lattice-order-service-userdata.sh")
+  tags                   = { Name = "skills-lattice-service-ec2" }
 }
 
 # Client EC2
 resource "aws_instance" "m2_client" {
-  provider               = aws.tokyo
   ami                    = data.aws_ami.al2023_tokyo.id
   instance_type          = "t3.micro"
   subnet_id              = aws_subnet.m2_client.id
   vpc_security_group_ids = [aws_security_group.m2_client.id]
   iam_instance_profile   = aws_iam_instance_profile.m2_client.name
-
-  user_data = file("${path.module}/app/module2/client/lattice-client-userdata.sh")
-
-  tags     = { Name = "skills-lattice-client-ec2" }
+  user_data              = file("${path.module}/../app/module2/client/lattice-client-userdata.sh")
+  tags                   = { Name = "skills-lattice-client-ec2" }
 }
 
 # VPC Lattice
 resource "aws_vpclattice_service_network" "m2" {
-  provider = aws.tokyo
-  name     = "skills-lattice-sn"
-  tags     = { Name = "skills-lattice-sn" }
+  name = "skills-lattice-sn"
+  tags = { Name = "skills-lattice-sn" }
 }
 
 resource "aws_security_group" "m2_lattice_assoc" {
-  provider = aws.tokyo
-  vpc_id   = aws_vpc.m2_client.id
+  vpc_id = aws_vpc.m2_client.id
   ingress {
-    from_port = 80
-    to_port = 80
-    protocol = "tcp"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = ["10.61.0.0/16"]
   }
   egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
 resource "aws_vpclattice_service_network_vpc_association" "m2_client" {
-  provider           = aws.tokyo
-  vpc_identifier     = aws_vpc.m2_client.id
+  vpc_identifier             = aws_vpc.m2_client.id
   service_network_identifier = aws_vpclattice_service_network.m2.id
-  security_group_ids = [aws_security_group.m2_lattice_assoc.id]
+  security_group_ids         = [aws_security_group.m2_lattice_assoc.id]
 }
 
 resource "aws_vpclattice_target_group" "m2" {
-  provider = aws.tokyo
-  name     = "skills-lattice-order-tg"
-  type     = "INSTANCE"
+  name = "skills-lattice-order-tg"
+  type = "INSTANCE"
   config {
-    port             = 8080
-    protocol         = "HTTP"
-    vpc_identifier   = aws_vpc.m2_service.id
+    port           = 8080
+    protocol       = "HTTP"
+    vpc_identifier = aws_vpc.m2_service.id
     health_check {
       path     = "/health"
       protocol = "HTTP"
@@ -251,7 +224,6 @@ resource "aws_vpclattice_target_group" "m2" {
 }
 
 resource "aws_vpclattice_target_group_attachment" "m2" {
-  provider             = aws.tokyo
   target_group_identifier = aws_vpclattice_target_group.m2.id
   target {
     id   = aws_instance.m2_service.id
@@ -260,19 +232,16 @@ resource "aws_vpclattice_target_group_attachment" "m2" {
 }
 
 resource "aws_vpclattice_service" "m2" {
-  provider = aws.tokyo
-  name     = "skills-lattice-order-service"
-  tags     = { Name = "skills-lattice-order-service" }
+  name = "skills-lattice-order-service"
+  tags = { Name = "skills-lattice-order-service" }
 }
 
 resource "aws_vpclattice_service_network_service_association" "m2" {
-  provider                   = aws.tokyo
   service_identifier         = aws_vpclattice_service.m2.id
   service_network_identifier = aws_vpclattice_service_network.m2.id
 }
 
 resource "aws_vpclattice_listener" "m2" {
-  provider           = aws.tokyo
   name               = "skills-lattice-http-listener"
   protocol           = "HTTP"
   port               = 80

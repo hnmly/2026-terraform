@@ -1,46 +1,41 @@
-# 08 - 2과제: Small Challenges
+# 08 - 2과제: Small Challenges (모듈별 분리)
 
-단일 `terraform apply`로 4개 모듈 인프라 전체 생성.
+각 모듈을 독립적으로 `terraform init && terraform apply` 합니다.
 
----
-
-## ⚡ 빠른 배포 (CloudShell 복붙)
+## 사전 준비 (CloudShell)
 
 ```bash
 # Terraform 설치
-sudo dnf install -y yum-utils && sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo && sudo dnf install -y terraform
+sudo dnf install -y yum-utils
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+sudo dnf install -y terraform
 
-# 클론
-git clone https://github.com/hnmly/2026-terraform.git && cd 2026-terraform/08/2과제
-
-# 전체 인프라 생성 (4개 리전 동시)
-terraform init
-terraform apply -var="docdb_password=Skills2026!" -auto-approve
+# 소스 클론
+git clone https://github.com/hnmly/2026-terraform.git
+cd 2026-terraform/08/2과제
 ```
 
-⏱ 소요시간: DocumentDB ~10분, EKS ~15분 (가장 오래 걸림)
-
----
-
-## 📋 terraform apply 이후 수동 작업
-
-### 모듈1: DocumentDB 앱 실행
-
-EC2에 SSM 접속 → 앱 파일 업로드 → seed + run
+## 모듈1: DocumentDB (서울, ~10분)
 
 ```bash
-# CloudShell에서 앱 파일을 S3로 업로드
-aws s3 cp app/module1/ s3://임시버킷/module1/ --recursive --region ap-northeast-2
+cd module1
+terraform init
+terraform apply -var="docdb_password=Skills2026!" -auto-approve
+cd ..
+```
 
-# EC2 SSM 접속
-aws ssm start-session --target <instance-id> --region ap-northeast-2
+### apply 후 수동 작업
 
-# EC2 안에서
-aws s3 cp s3://임시버킷/module1/ /tmp/ --recursive
-cd /tmp && chmod +x install_client_app.sh run_app.sh run_seed.sh
-./install_client_app.sh
+```bash
+# EC2 인스턴스 ID 확인
+INSTANCE_ID=$(aws ec2 describe-instances --region ap-northeast-2 \
+  --filters Name=tag:Name,Values=skills-nosql-client-ec2 Name=instance-state-name,Values=running \
+  --query "Reservations[0].Instances[0].InstanceId" --output text)
 
-# 환경변수
+# SSM 접속
+aws ssm start-session --target $INSTANCE_ID --region ap-northeast-2
+
+# EC2 내부에서 앱 실행
 export DOCDB_HOST=$(aws secretsmanager get-secret-value --secret-id skills-nosql-docdb-secret --region ap-northeast-2 --query SecretString --output text | python3 -c "import json,sys;print(json.load(sys.stdin)['host'])")
 export DOCDB_USER=skillsadmin
 export DOCDB_PASS=Skills2026!
@@ -48,62 +43,90 @@ export DOCDB_PORT=27017
 export DOCDB_TLS=true
 export DOCDB_CA_PATH=/opt/skills-nosql/global-bundle.pem
 
-./run_seed.sh    # 데이터 적재
-nohup ./run_app.sh &  # 앱 실행 (8080 포트)
+./run_seed.sh
+nohup ./run_app.sh &
 ```
 
-### 모듈2: VPC Lattice
-
-Terraform이 전부 처리. EC2 user_data로 앱 자동 실행됨.  
-Client EC2 Public IP로 `curl http://<IP>/health` 확인.
-
-### 모듈3: Cloud Event Handling
-
-Terraform이 전부 처리. Lambda + EventBridge + CloudTrail 자동 구성.  
-`skills-ceh-protected-sg`의 Inbound 규칙이 0개인지만 확인.
-
-### 모듈4: EKS + KEDA + Karpenter
-
-EKS 클러스터 생성 완료 후 K8s 리소스 배포:
+## 모듈2: VPC Lattice (도쿄, ~3분)
 
 ```bash
-# Helm + kubectl 설치
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-EKS_VER=$(aws eks describe-cluster --region us-west-2 --name skills-sqs-cluster --query 'cluster.version' --output text)
-curl -LO "https://dl.k8s.io/release/v${EKS_VER}.0/bin/linux/amd64/kubectl" && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+cd module2
+terraform init
+terraform apply -auto-approve
+cd ..
+```
 
-# K8s 리소스 전부 배포 (KEDA, Karpenter, Worker, ScaledObject, NodePool)
+자동 완료. Client EC2 Public IP로 확인:
+```bash
+curl http://<Client-EC2-Public-IP>/health
+```
+
+## 모듈3: Cloud Event Handling (싱가포르, ~3분)
+
+```bash
+cd module3
+terraform init
+terraform apply -auto-approve
+cd ..
+```
+
+자동 완료. `skills-ceh-protected-sg`의 Inbound 규칙이 0개인지 확인.
+
+## 모듈4: EKS + KEDA + Karpenter (오레곤, ~15분)
+
+```bash
+cd module4
+terraform init
+terraform apply -auto-approve
+cd ..
+```
+
+### apply 후 K8s 리소스 배포
+
+```bash
+# kubectl 설치
+EKS_VER=$(aws eks describe-cluster --region us-west-2 --name skills-sqs-cluster --query 'cluster.version' --output text)
+curl -LO "https://dl.k8s.io/release/v${EKS_VER}.0/bin/linux/amd64/kubectl"
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+# Helm 설치
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# kubeconfig 설정
+aws eks update-kubeconfig --region us-west-2 --name skills-sqs-cluster
+
+# K8s 리소스 배포
 chmod +x k8s-apply.sh
 ./k8s-apply.sh
 ```
 
----
-
-## 🗂 파일 구조
+## 파일 구조
 
 ```
 08/2과제/
-├── provider.tf       # 서울/도쿄/싱가포르/오레곤 4개 provider
-├── variables.tf      # docdb_password
-├── module1.tf        # 모듈1: DocumentDB (ap-northeast-2)
-├── module2.tf        # 모듈2: VPC Lattice (ap-northeast-1)
-├── module3.tf        # 모듈3: EventBridge+Lambda (ap-southeast-1)
-├── module4.tf        # 모듈4: EKS+SQS (us-west-2)
-├── k8s-apply.sh      # 모듈4 K8s 배포 스크립트
-└── app/
-    ├── module1/      # DocumentDB 앱 (Python)
-    ├── module2/      # VPC Lattice client/service (Python)
-    ├── module3/      # Lambda 함수 (Python)
-    └── module4/      # SQS Worker (Python + Dockerfile)
+├── module1/        # DocumentDB (ap-northeast-2)
+│   ├── provider.tf
+│   ├── variables.tf
+│   └── module1.tf
+├── module2/        # VPC Lattice (ap-northeast-1)
+│   ├── provider.tf
+│   └── module2.tf
+├── module3/        # EventBridge+Lambda (ap-southeast-1)
+│   ├── provider.tf
+│   └── module3.tf
+├── module4/        # EKS+SQS (us-west-2)
+│   ├── provider.tf
+│   └── module4.tf
+├── app/            # 앱 소스코드
+├── k8s-apply.sh    # 모듈4 K8s 배포 스크립트
+└── README.md
 ```
 
----
+## 소요시간 목안
 
-## 🎯 모듈별 요약
-
-| 모듈 | 리전 | 핵심 | 자동/수동 |
-|------|------|------|-----------|
-| 1 | 서울 | DocumentDB + Client EC2 + Secrets | **수동**: EC2에서 앱 실행 |
-| 2 | 도쿄 | VPC Lattice + Client/Service EC2 | **자동**: user_data로 완료 |
-| 3 | 싱가포르 | EventBridge → Lambda → SG 복구 | **자동**: terraform 완료 |
-| 4 | 오레곤 | EKS + SQS + KEDA + Karpenter | **수동**: k8s-apply.sh 실행 |
+| 모듈 | 리전 | 예상시간 | 자동/수동 |
+|------|------|----------|-----------|
+| 1 | 서울 | ~10분 | 수동: EC2에서 앱 실행 |
+| 2 | 도쿄 | ~3분 | 자동 |
+| 3 | 싱가포르 | ~3분 | 자동 |
+| 4 | 오레곤 | ~15분 | 수동: k8s-apply.sh |
