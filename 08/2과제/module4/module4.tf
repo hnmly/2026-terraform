@@ -287,6 +287,12 @@ resource "aws_iam_instance_profile" "m4_node" {
   role = aws_iam_role.m4_node.name
 }
 
+resource "aws_eks_access_entry" "m4_node" {
+  cluster_name  = aws_eks_cluster.m4.name
+  principal_arn = aws_iam_role.m4_node.arn
+  type          = "EC2_LINUX"
+}
+
 # Outputs
 output "eks_cluster_name" { value = aws_eks_cluster.m4.name }
 output "eks_endpoint" { value = aws_eks_cluster.m4.endpoint }
