@@ -142,6 +142,7 @@ spec:
         values: ["t3.medium", "t3.large"]
   disruption:
     consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 30s
   limits:
     cpu: 100
 EOF
