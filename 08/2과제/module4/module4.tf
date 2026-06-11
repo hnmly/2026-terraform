@@ -316,6 +316,21 @@ resource "aws_eks_access_policy_association" "m4_admin" {
   access_scope { type = "cluster" }
 }
 
+# CoreDNS를 Fargate에서 실행하도록 패치 (EC2 nodeSelector annotation 제거)
+resource "null_resource" "coredns_fargate" {
+  depends_on = [
+    aws_eks_fargate_profile.m4_kube_system,
+    aws_eks_access_policy_association.m4_admin
+  ]
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      aws eks update-kubeconfig --region us-west-2 --name skills-sqs-cluster
+      kubectl patch deployment coredns -n kube-system --type=json -p='[{"op":"remove","path":"/spec/template/metadata/annotations/eks.amazonaws.com~1compute-type"}]' || true
+      kubectl rollout restart deployment coredns -n kube-system || true
+    EOT
+  }
+}
 # Outputs
 output "eks_cluster_name" { value = aws_eks_cluster.m4.name }
 output "eks_endpoint" { value = aws_eks_cluster.m4.endpoint }
