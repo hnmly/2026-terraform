@@ -112,12 +112,21 @@ resource "aws_iam_role_policy_attachment" "m4_fargate" {
 }
 
 # Fargate Profiles
+resource "aws_eks_fargate_profile" "m4_kube_system" {
+  cluster_name           = aws_eks_cluster.m4.name
+  fargate_profile_name   = "skills-sqs-fp-kube-system"
+  pod_execution_role_arn = aws_iam_role.m4_fargate.arn
+  subnet_ids             = aws_subnet.m4_private[*].id
+  selector { namespace = "kube-system" }
+}
+
 resource "aws_eks_fargate_profile" "m4_keda" {
   cluster_name           = aws_eks_cluster.m4.name
   fargate_profile_name   = "skills-sqs-fp-keda"
   pod_execution_role_arn = aws_iam_role.m4_fargate.arn
   subnet_ids             = aws_subnet.m4_private[*].id
   selector { namespace = "keda" }
+  depends_on             = [aws_eks_fargate_profile.m4_kube_system]
 }
 
 resource "aws_eks_fargate_profile" "m4_karpenter" {
@@ -126,6 +135,7 @@ resource "aws_eks_fargate_profile" "m4_karpenter" {
   pod_execution_role_arn = aws_iam_role.m4_fargate.arn
   subnet_ids             = aws_subnet.m4_private[*].id
   selector { namespace = "karpenter" }
+  depends_on             = [aws_eks_fargate_profile.m4_keda]
 }
 
 # SQS Queue
