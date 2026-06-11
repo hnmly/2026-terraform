@@ -182,9 +182,15 @@ resource "aws_instance" "m1_client" {
   user_data = <<-USERDATA
 #!/bin/bash
 set -ex
-dnf install -y python3.11 python3.11-pip
-mkdir -p /opt/skills-nosql
-curl -o /opt/skills-nosql/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+cd /home/ec2-user
+
+REPO_BASE="https://raw.githubusercontent.com/hnmly/2026-terraform/main/08/2%EA%B3%BC%EC%A0%9C/app/module1"
+for f in install_client_app.sh run_app.sh run_seed.sh run_validate.sh docdb_client.py retail_dataset.json requirements.txt; do
+  curl -fsSL "$REPO_BASE/$f" -o "/home/ec2-user/$f"
+done
+chmod +x *.sh
+
+./install_client_app.sh
 USERDATA
 
   tags = { Name = "skills-nosql-client-ec2" }
