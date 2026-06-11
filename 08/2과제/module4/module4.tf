@@ -227,7 +227,7 @@ resource "aws_iam_role_policy" "m4_karpenter_extra" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["eks:DescribeCluster"], Resource = aws_eks_cluster.m4.arn },
-      { Effect = "Allow", Action = ["iam:PassRole"], Resource = "*" },
+      { Effect = "Allow", Action = ["iam:PassRole", "iam:GetInstanceProfile", "iam:CreateInstanceProfile", "iam:DeleteInstanceProfile", "iam:AddRoleToInstanceProfile", "iam:RemoveRoleFromInstanceProfile", "iam:TagInstanceProfile"], Resource = "*" },
       { Effect = "Allow", Action = ["pricing:*", "ec2:*", "ssm:GetParameter"], Resource = "*" }
     ]
   })
