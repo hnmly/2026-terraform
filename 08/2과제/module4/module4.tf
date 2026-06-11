@@ -26,6 +26,9 @@ resource "aws_subnet" "m4_private" {
   vpc_id            = aws_vpc.m4.id
   cidr_block        = "10.4.${count.index + 10}.0/24"
   availability_zone = data.aws_availability_zones.oregon.names[count.index]
+  tags = {
+    "kubernetes.io/cluster/skills-sqs-cluster" = "owned"
+  }
 }
 
 resource "aws_internet_gateway" "m4" {
@@ -95,6 +98,12 @@ resource "aws_eks_cluster" "m4" {
   }
 
   depends_on = [aws_iam_role_policy_attachment.m4_eks]
+}
+
+resource "aws_ec2_tag" "m4_cluster_sg" {
+  resource_id = aws_eks_cluster.m4.vpc_config[0].cluster_security_group_id
+  key         = "kubernetes.io/cluster/skills-sqs-cluster"
+  value       = "owned"
 }
 
 # Fargate Pod Execution Role
