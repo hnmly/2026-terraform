@@ -205,6 +205,20 @@ cd /opt/skills-nosql
 nohup ./run_app.sh > /home/ec2-user/nohup.out 2>&1 &
 sleep 5
 ./run_seed.sh || /opt/skills-nosql/.venv/bin/python3 /opt/skills-nosql/docdb_client.py seed
+
+# 인덱스 생성
+/opt/skills-nosql/.venv/bin/python3 -c "
+from docdb_client import db, ASCENDING, DESCENDING
+d = db()
+d.orders.create_index([('orderId', ASCENDING)], unique=True, name='orderId_1')
+d.orders.create_index([('customerId', ASCENDING), ('createdAt', DESCENDING)], name='customerId_1_createdAt_-1')
+d.orders.create_index([('status', ASCENDING), ('dueAt', ASCENDING)], name='status_1_dueAt_1')
+d.products.create_index([('productId', ASCENDING)], unique=True, name='productId_1')
+d.products.create_index([('warehouseId', ASCENDING), ('stock', ASCENDING)], name='warehouseId_1_stock_1')
+d.sessions.create_index([('sessionId', ASCENDING)], unique=True, name='sessionId_1')
+d.sessions.create_index([('expiresAt', ASCENDING)], expireAfterSeconds=0, name='expiresAt_1')
+d.sessions.create_index([('customerId', ASCENDING), ('lastSeen', DESCENDING)], name='customerId_1_lastSeen_-1')
+"
 USERDATA
 
   tags = { Name = "skills-nosql-client-ec2" }
