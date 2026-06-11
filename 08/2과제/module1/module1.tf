@@ -183,22 +183,8 @@ resource "aws_instance" "m1_client" {
 #!/bin/bash
 set -ex
 dnf install -y python3.11 python3.11-pip
-ln -sf /usr/bin/python3.11 /usr/bin/python3
-
 mkdir -p /opt/skills-nosql
-aws secretsmanager get-secret-value --secret-id skills-nosql-docdb-secret --region ap-northeast-2 --query SecretString --output text > /tmp/secret.json
-DOCDB_HOST=$(python3 -c "import json;print(json.load(open('/tmp/secret.json'))['host'])")
-DOCDB_USER=$(python3 -c "import json;print(json.load(open('/tmp/secret.json'))['username'])")
-DOCDB_PASS=$(python3 -c "import json;print(json.load(open('/tmp/secret.json'))['password'])")
-
-cat > /opt/skills-nosql/env.sh <<ENVEOF
-export DOCDB_HOST=$DOCDB_HOST
-export DOCDB_USER=$DOCDB_USER
-export DOCDB_PASS=$DOCDB_PASS
-export DOCDB_PORT=27017
-export DOCDB_TLS=true
-export DOCDB_CA_PATH=/opt/skills-nosql/global-bundle.pem
-ENVEOF
+curl -o /opt/skills-nosql/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 USERDATA
 
   tags = { Name = "skills-nosql-client-ec2" }
