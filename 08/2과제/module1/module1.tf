@@ -191,6 +191,20 @@ done
 chmod +x *.sh
 
 ./install_client_app.sh
+
+# 환경변수 설정 (앱은 Secrets Manager에서 직접 읽지만 참조용)
+export DOCDB_HOST=$(aws secretsmanager get-secret-value --secret-id skills-nosql-docdb-secret --region ap-northeast-2 --query SecretString --output text | python3 -c "import json,sys;print(json.load(sys.stdin)['host'])")
+export DOCDB_USER=skillsadmin
+export DOCDB_PASS=Skills2026!
+export DOCDB_PORT=27017
+export DOCDB_TLS=true
+export DOCDB_CA_PATH=/opt/skills-nosql/global-bundle.pem
+
+# 앱 실행 후 seed
+cd /opt/skills-nosql
+nohup ./run_app.sh > /home/ec2-user/nohup.out 2>&1 &
+sleep 5
+./run_seed.sh || /opt/skills-nosql/.venv/bin/python3 /opt/skills-nosql/docdb_client.py seed
 USERDATA
 
   tags = { Name = "skills-nosql-client-ec2" }
