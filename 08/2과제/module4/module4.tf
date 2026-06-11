@@ -101,6 +101,10 @@ resource "aws_eks_cluster" "m4" {
     authentication_mode = "API_AND_CONFIG_MAP"
   }
 
+  lifecycle {
+    ignore_changes = [access_config]
+  }
+
   depends_on = [aws_iam_role_policy_attachment.m4_eks]
 }
 
@@ -295,6 +299,21 @@ resource "aws_eks_access_entry" "m4_node" {
   cluster_name  = aws_eks_cluster.m4.name
   principal_arn = aws_iam_role.m4_node.arn
   type          = "EC2_LINUX"
+}
+
+data "aws_caller_identity" "m4" {}
+
+resource "aws_eks_access_entry" "m4_admin" {
+  cluster_name  = aws_eks_cluster.m4.name
+  principal_arn = "arn:aws:iam::${data.aws_caller_identity.m4.account_id}:root"
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "m4_admin" {
+  cluster_name  = aws_eks_cluster.m4.name
+  principal_arn = "arn:aws:iam::${data.aws_caller_identity.m4.account_id}:root"
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  access_scope { type = "cluster" }
 }
 
 # Outputs
