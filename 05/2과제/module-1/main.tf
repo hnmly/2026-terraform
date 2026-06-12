@@ -4,6 +4,18 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.17"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.33"
+    }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "~> 1.19"
+    }
   }
 }
 
@@ -12,6 +24,33 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# EKS 인증 정보 (Helm/Kubernetes/kubectl Provider용)
+data "aws_eks_cluster_auth" "main" {
+  name = aws_eks_cluster.main.name
+}
+
+provider "kubernetes" {
+  host                   = aws_eks_cluster.main.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.main.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.main.token
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = aws_eks_cluster.main.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.main.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.main.token
+  }
+}
+
+provider "kubectl" {
+  host                   = aws_eks_cluster.main.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.main.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.main.token
+  load_config_file       = false
+}
 
 locals {
   name = "wsc-scaling"
@@ -50,14 +89,20 @@ resource "aws_subnet" "priv_a" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.11.10.0/24"
   availability_zone = "ap-northeast-2a"
-  tags              = { Name = "${local.name}-sn-priv-a" }
+  tags = {
+    Name                     = "${local.name}-sn-priv-a"
+    "karpenter.sh/discovery" = "wsc-scaling-cluster"
+  }
 }
 
 resource "aws_subnet" "priv_c" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.11.11.0/24"
   availability_zone = "ap-northeast-2c"
-  tags              = { Name = "${local.name}-sn-priv-c" }
+  tags = {
+    Name                     = "${local.name}-sn-priv-c"
+    "karpenter.sh/discovery" = "wsc-scaling-cluster"
+  }
 }
 
 # NAT Gateway
@@ -348,6 +393,19 @@ resource "aws_iam_policy" "keda_sqs" {
       Resource = aws_sqs_queue.main.arn
     }]
   })
+}
+
+# KEDA operator가 노드 역할 자격증명으로 SQS를 읽도록 정책 연결
+resource "aws_iam_role_policy_attachment" "node_keda_sqs" {
+  role       = aws_iam_role.eks_node.name
+  policy_arn = aws_iam_policy.keda_sqs.arn
+}
+
+# EKS Pod Identity Agent (Karpenter Pod Identity용)
+resource "aws_eks_addon" "pod_identity" {
+  cluster_name  = aws_eks_cluster.main.name
+  addon_name    = "eks-pod-identity-agent"
+  depends_on    = [aws_eks_node_group.main]
 }
 
 output "cluster_name" {
