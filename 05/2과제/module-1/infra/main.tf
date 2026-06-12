@@ -135,7 +135,7 @@ resource "aws_security_group" "bastion" {
 }
 
 resource "aws_iam_role" "bastion" {
-  name = "${local.name}-bastion-role"
+  name_prefix = "${local.name}-bastion-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -152,7 +152,7 @@ resource "aws_iam_role_policy_attachment" "bastion_admin" {
 }
 
 resource "aws_iam_instance_profile" "bastion" {
-  name = "${local.name}-bastion-profile"
+  name_prefix = "${local.name}-bastion-"
   role = aws_iam_role.bastion.name
 }
 
@@ -216,7 +216,7 @@ resource "aws_sqs_queue" "main" {
 
 # EKS
 resource "aws_iam_role" "eks_cluster" {
-  name = "${local.name}-cluster-role"
+  name_prefix = "${local.name}-cluster-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -261,7 +261,7 @@ resource "aws_eks_access_policy_association" "bastion" {
 }
 
 resource "aws_iam_role" "eks_node" {
-  name = "${local.name}-node-role"
+  name_prefix = "${local.name}-node-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -313,7 +313,7 @@ resource "aws_eks_node_group" "main" {
 }
 
 resource "aws_iam_policy" "keda_sqs" {
-  name = "${local.name}-keda-sqs"
+  name_prefix = "${local.name}-keda-sqs-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

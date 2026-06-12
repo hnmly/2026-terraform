@@ -35,8 +35,14 @@ data "aws_sqs_queue" "main" {
   name = "wsc-scaling-sqs"
 }
 
-data "aws_iam_role" "node" {
-  name = "wsc-scaling-node-role"
+data "aws_eks_node_group" "main" {
+  cluster_name    = "wsc-scaling-cluster"
+  node_group_name = "wsc-scaling-node"
+}
+
+locals {
+  node_role_arn  = data.aws_eks_node_group.main.node_role_arn
+  node_role_name = element(split("/", data.aws_eks_node_group.main.node_role_arn), 1)
 }
 
 provider "kubernetes" {
@@ -130,7 +136,7 @@ resource "kubectl_manifest" "scaledobject" {
 
 # Karpenter
 resource "aws_iam_role" "karpenter_controller" {
-  name = "wsc-scaling-karpenter-controller"
+  name_prefix = "wsc-scaling-karpenter-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -142,7 +148,7 @@ resource "aws_iam_role" "karpenter_controller" {
 }
 
 resource "aws_iam_policy" "karpenter_controller" {
-  name = "wsc-scaling-karpenter-controller"
+  name_prefix = "wsc-scaling-karpenter-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -160,7 +166,7 @@ resource "aws_iam_policy" "karpenter_controller" {
       },
       { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = "arn:aws:ssm:*::parameter/aws/service/*" },
       { Effect = "Allow", Action = ["pricing:GetProducts"], Resource = "*" },
-      { Effect = "Allow", Action = ["iam:PassRole"], Resource = data.aws_iam_role.node.arn },
+      { Effect = "Allow", Action = ["iam:PassRole"], Resource = local.node_role_arn },
       {
         Effect = "Allow"
         Action = ["iam:CreateInstanceProfile", "iam:TagInstanceProfile", "iam:GetInstanceProfile", "iam:AddRoleToInstanceProfile", "iam:RemoveRoleFromInstanceProfile", "iam:DeleteInstanceProfile"]
@@ -213,7 +219,7 @@ resource "kubectl_manifest" "ec2nodeclass" {
     metadata:
       name: default
     spec:
-      role: ${data.aws_iam_role.node.name}
+      role: ${local.node_role_name}
       amiSelectorTerms:
       - alias: al2023@latest
       subnetSelectorTerms:

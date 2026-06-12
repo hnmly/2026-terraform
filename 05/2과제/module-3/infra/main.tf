@@ -142,7 +142,7 @@ resource "aws_security_group" "ec2" {
 
 # EC2 IAM Role
 resource "aws_iam_role" "ec2" {
-  name = "${local.name}-ec2-role"
+  name_prefix = "${local.name}-ec2-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -159,7 +159,7 @@ resource "aws_iam_role_policy_attachment" "ec2_admin" {
 }
 
 resource "aws_iam_instance_profile" "ec2" {
-  name = "${local.name}-ec2-profile"
+  name_prefix = "${local.name}-ec2-"
   role = aws_iam_role.ec2.name
 }
 
@@ -341,7 +341,7 @@ EOF
 
 # EKS Cluster IAM
 resource "aws_iam_role" "eks_cluster" {
-  name = "${local.name}-cluster-role"
+  name_prefix = "${local.name}-cluster-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -394,7 +394,7 @@ resource "aws_eks_access_policy_association" "ec2" {
 
 # EKS Node Group IAM
 resource "aws_iam_role" "eks_node" {
-  name = "${local.name}-node-role"
+  name_prefix = "${local.name}-node-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -459,7 +459,7 @@ output "ec2_public_ip" {
 
 # EBS CSI Driver (Pod Identity) - Loki PVC용
 resource "aws_iam_role" "ebs_csi" {
-  name = "${local.name}-ebs-csi"
+  name_prefix = "${local.name}-ebs-csi-"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
