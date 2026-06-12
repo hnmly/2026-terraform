@@ -232,8 +232,8 @@ resource "aws_instance" "bastion" {
 #!/bin/bash
 set -x
 
-# --- kubectl 설치 (EKS 1.35 대응) ---
-curl -sLO https://s3.us-west-2.amazonaws.com/amazon-eks/1.35.0/2025-01-17/bin/linux/amd64/kubectl
+# --- kubectl 설치 (공식 Kubernetes 릴리스 stable) ---
+curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 chmod +x kubectl && mv kubectl /usr/local/bin/kubectl
 
 # --- helm 설치 ---
