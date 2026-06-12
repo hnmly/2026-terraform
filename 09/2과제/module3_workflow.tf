@@ -48,6 +48,31 @@ resource "aws_dynamodb_table" "workflow_output" {
   }
 }
 
+# ---- Lambda 환경변수 암호화용 KMS 키 (role decrypt 허용) ----
+resource "aws_kms_key" "workflow_lambda" {
+  provider    = aws.sg
+  description = "workflow lambda env encryption"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "Root"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "LambdaRole"
+        Effect    = "Allow"
+        Principal = { AWS = aws_iam_role.workflow_lambda.arn }
+        Action    = ["kms:Decrypt", "kms:DescribeKey"]
+        Resource  = "*"
+      }
+    ]
+  })
+}
+
 # ---- Lambda 실행 역할 ----
 data "aws_iam_policy_document" "lambda_assume" {
   statement {
@@ -81,6 +106,11 @@ data "aws_iam_policy_document" "workflow_lambda" {
     actions   = ["dynamodb:PutItem", "dynamodb:BatchWriteItem", "dynamodb:DescribeTable"]
     resources = [aws_dynamodb_table.workflow_output.arn]
   }
+  statement {
+    sid       = "KMSDecrypt"
+    actions   = ["kms:Decrypt"]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "workflow_lambda" {
@@ -106,7 +136,7 @@ resource "aws_lambda_function" "workflow_transform" {
   timeout          = 60
   filename         = data.archive_file.workflow_lambda.output_path
   source_code_hash = data.archive_file.workflow_lambda.output_base64sha256
-  kms_key_arn      = ""
+  kms_key_arn      = aws_kms_key.workflow_lambda.arn
 
   environment {
     variables = {
