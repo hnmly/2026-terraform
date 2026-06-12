@@ -191,6 +191,9 @@ resource "aws_sfn_state_machine" "workflow" {
 # Step Functions 자동 실행 (채점 [3-5] workflow-output 데이터 적재)
 resource "null_resource" "sfn_execute" {
   depends_on = [aws_sfn_state_machine.workflow]
+  triggers = {
+    always = timestamp()
+  }
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT
