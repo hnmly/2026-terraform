@@ -21,7 +21,7 @@ git clone https://github.com/hnmly/2026-terraform.git
 cd 2026-terraform
 
 # 한글 폴더명이므로 glob 패턴으로 이동 (탭 자동완성 대신)
-cd 05/2*/1*     # = 05/2과제/1모듈
+cd 05/2*/module-1
 
 # Terraform 실행
 terraform init
@@ -36,7 +36,7 @@ BASTION_IP=$(terraform output -raw bastion_eip 2>/dev/null || aws ec2 describe-i
 
 ```bash
 cd ~/2026-terraform
-cd 05/2*/3*     # = 05/2과제/3모듈
+cd 05/2*/module-3
 
 terraform init
 terraform apply -auto-approve
