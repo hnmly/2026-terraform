@@ -1,5 +1,15 @@
 # 05 2과제 - 1모듈(EKS Scaling) / 3모듈(Container Logging)
 
+## 사전 준비 (CloudShell)
+
+```bash
+# Terraform 설치
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+sudo yum -y install terraform
+terraform --version
+```
+
 ## 실행 방법 (CloudShell)
 
 ### 1모듈 - EKS Scaling (ap-northeast-2)
