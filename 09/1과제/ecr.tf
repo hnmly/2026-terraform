@@ -38,12 +38,10 @@ resource "null_resource" "docker_build_push" {
     repository  = aws_ecr_repository.book.repository_url
   }
 
-  # Windows PowerShell 기준. (Linux/macOS는 README의 bash 버전 참고)
   provisioner "local-exec" {
-    interpreter = ["PowerShell", "-Command"]
+    interpreter = ["/bin/bash", "-c"]
     working_dir = path.module
     command     = <<-EOT
-      $ErrorActionPreference = "Stop"
       aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${local.ecr_registry}
       docker buildx build --platform linux/amd64 -t ${local.image_uri} --push ./app
     EOT
