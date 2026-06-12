@@ -7,7 +7,9 @@ module-1/
 ├── infra/   ← Step 1: VPC, Bastion, SQS, EKS, NodeGroup
 └── k8s/     ← Step 2: Namespace, Deployment, KEDA, Karpenter
 
-module-3/    ← 단일 (EKS 클러스터 포함 + Loki/Grafana)
+module-3/
+├── infra/   ← Step 1: VPC, EC2(앱+FluentBit), EKS, EBS CSI
+└── k8s/     ← Step 2: Loki, Grafana, FluentBit 연동
 ```
 
 ---
@@ -46,10 +48,17 @@ terraform apply -auto-approve
 ## 2. module-3 (Container Logging, ap-northeast-1)
 
 ```bash
-cd ~/2026-terraform/05/2*/module-3
+# Step 1: 인프라 (VPC, EC2+앱+FluentBit, EKS, EBS CSI)
+cd ~/2026-terraform/05/2*/module-3/infra
+terraform init
+terraform apply -auto-approve
+# ⏱ ~18분
+
+# Step 2: 로깅 스택 (Loki, Grafana, FluentBit 연동) - Step 1 완료 후
+cd ../k8s
 terraform init
 terraform apply -auto-approve -var pin=<비번호>
-# ⏱ ~20분
+# ⏱ ~7분
 ```
 
 > `pin`은 본인 비번호 (Grafana 계정: `wsc2026-admin-<pin>` / `admin<pin>!`)

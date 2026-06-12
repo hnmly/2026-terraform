@@ -1,18 +1,102 @@
-# =====================================================================
-# Module 3 - 로깅 스택 (Loki / Grafana)
-# =====================================================================
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.17"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.33"
+    }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "~> 1.19"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
+  }
+}
 
-# Namespace: wsc-logging
+provider "aws" {
+  region = "ap-northeast-1"
+}
+
+variable "pin" {
+  description = "비번호 (Grafana 계정). 예: terraform apply -var pin=07"
+  type        = string
+  default     = "00"
+}
+
+data "aws_eks_cluster" "main" {
+  name = "wsc-logging-cluster"
+}
+
+data "aws_eks_cluster_auth" "main" {
+  name = "wsc-logging-cluster"
+}
+
+data "aws_instance" "app" {
+  filter {
+    name   = "tag:Name"
+    values = ["wsc-logging-app-bastion"]
+  }
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
+  }
+}
+
+provider "kubernetes" {
+  host                   = data.aws_eks_cluster.main.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.main.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.main.token
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = data.aws_eks_cluster.main.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.main.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.main.token
+  }
+}
+
+provider "kubectl" {
+  host                   = data.aws_eks_cluster.main.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.main.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.main.token
+  load_config_file       = false
+}
+
+# 기본 StorageClass (gp3)
+resource "kubernetes_storage_class" "gp3" {
+  metadata {
+    name = "gp3"
+    annotations = {
+      "storageclass.kubernetes.io/is-default-class" = "true"
+    }
+  }
+  storage_provisioner    = "ebs.csi.aws.com"
+  volume_binding_mode    = "WaitForFirstConsumer"
+  allow_volume_expansion = true
+  parameters = {
+    type = "gp3"
+  }
+}
+
+# Namespace
 resource "kubernetes_namespace" "logging" {
   metadata {
     name = "wsc-logging"
   }
-  depends_on = [aws_eks_node_group.main]
 }
 
-# ---------------------------------------------------------------------
 # Loki (SingleBinary, filesystem PVC 10Gi)
-# ---------------------------------------------------------------------
 resource "helm_release" "loki" {
   name       = "loki"
   repository = "https://grafana.github.io/helm-charts"
@@ -77,7 +161,7 @@ resource "helm_release" "loki" {
   depends_on = [kubernetes_storage_class.gp3]
 }
 
-# Loki를 EC2 Fluent Bit이 접근할 수 있도록 NLB(LoadBalancer)로 노출 (port 3100)
+# Loki NLB 노출 (EC2 Fluent Bit용, port 3100)
 resource "kubernetes_service" "loki_nlb" {
   metadata {
     name      = "loki-nlb"
@@ -101,13 +185,10 @@ resource "kubernetes_service" "loki_nlb" {
       target_port = 3100
     }
   }
-
   depends_on = [helm_release.loki]
 }
 
-# ---------------------------------------------------------------------
 # Grafana (NLB, Loki DataSource + WSC2026 Container Logs 대시보드)
-# ---------------------------------------------------------------------
 resource "helm_release" "grafana" {
   name       = "grafana"
   repository = "https://grafana.github.io/helm-charts"
@@ -196,4 +277,41 @@ resource "helm_release" "grafana" {
   ]
 
   depends_on = [helm_release.loki]
+}
+
+# EC2 Fluent Bit에 Loki NLB 엔드포인트 자동 주입 (SSM)
+resource "null_resource" "configure_fluentbit" {
+  triggers = {
+    loki_host   = kubernetes_service.loki_nlb.status[0].load_balancer[0].ingress[0].hostname
+    instance_id = data.aws_instance.app.id
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      set -e
+      LOKI_HOST="${kubernetes_service.loki_nlb.status[0].load_balancer[0].ingress[0].hostname}"
+      INSTANCE_ID="${data.aws_instance.app.id}"
+      echo "Loki NLB: $LOKI_HOST -> instance $INSTANCE_ID"
+      for i in $(seq 1 30); do
+        PING=$(aws ssm describe-instance-information --region ap-northeast-1 \
+          --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+          --query "InstanceInformationList[0].PingStatus" --output text 2>/dev/null || echo "None")
+        [ "$PING" = "Online" ] && break
+        echo "SSM not ready ($PING), retry $i..."; sleep 10
+      done
+      CMD_ID=$(aws ssm send-command --region ap-northeast-1 \
+        --instance-ids "$INSTANCE_ID" \
+        --document-name "AWS-RunShellScript" \
+        --parameters "commands=[\"sed -i \\\"s/LOKI_NLB_DNS/$LOKI_HOST/g\\\" /etc/fluent-bit/fluent-bit.conf\",\"systemctl restart fluent-bit\",\"systemctl is-active fluent-bit\"]" \
+        --query "Command.CommandId" --output text)
+      echo "SSM Command: $CMD_ID"
+      sleep 10
+      aws ssm get-command-invocation --region ap-northeast-1 \
+        --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+        --query "StandardOutputContent" --output text || true
+    EOT
+  }
+
+  depends_on = [kubernetes_service.loki_nlb]
 }
