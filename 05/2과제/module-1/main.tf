@@ -232,17 +232,17 @@ resource "aws_instance" "bastion" {
 #!/bin/bash
 set -x
 
-# --- kubectl 설치 (없을 때만, 다운로드 검증 포함) ---
-if ! command -v kubectl >/dev/null 2>&1; then
-  for i in 1 2 3 4 5; do
-    KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
-    if [ -n "$KVER" ] && curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl"; then
-      chmod +x /usr/local/bin/kubectl
+# --- kubectl 설치 (항상 검증된 바이너리로 덮어쓰기. AMI에 깨진 kubectl이 있어도 교체) ---
+for i in 1 2 3 4 5; do
+  KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
+  if [ -n "$KVER" ] && curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl"; then
+    if head -c4 /tmp/kubectl | grep -q ELF; then
+      install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
       break
     fi
-    sleep 10
-  done
-fi
+  fi
+  sleep 10
+done
 
 # --- helm 설치 ---
 curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
