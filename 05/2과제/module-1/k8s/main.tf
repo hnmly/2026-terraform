@@ -191,9 +191,18 @@ resource "helm_release" "karpenter" {
   namespace  = "kube-system"
   wait       = true
   timeout    = 600
-  set { name = "settings.clusterName"; value = "wsc-scaling-cluster" }
-  set { name = "settings.clusterEndpoint"; value = data.aws_eks_cluster.main.endpoint }
-  set { name = "serviceAccount.name"; value = "karpenter" }
+  set {
+    name  = "settings.clusterName"
+    value = "wsc-scaling-cluster"
+  }
+  set {
+    name  = "settings.clusterEndpoint"
+    value = data.aws_eks_cluster.main.endpoint
+  }
+  set {
+    name  = "serviceAccount.name"
+    value = "karpenter"
+  }
   depends_on = [aws_eks_pod_identity_association.karpenter]
 }
 
