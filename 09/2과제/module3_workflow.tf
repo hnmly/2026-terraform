@@ -187,12 +187,16 @@ resource "aws_sfn_state_machine" "workflow" {
   }
 }
 
-# ---- 워크플로 실행 안내 ----
-# 채점 [3-5]는 Step Functions를 실행한 뒤 workflow-output 테이블의 데이터를 확인한다.
-# (채점 스크립트 grade_module3.sh 가 start-execution 을 직접 수행한다.)
-# 수동 확인이 필요하면 아래 명령으로 실행한다.
-#
-#   aws stepfunctions start-execution \
-#     --state-machine-arn <m3_state_machine_arn 출력값> \
-#     --input '{"bucket":"workflow-input-<비번호>","key":"data.csv"}' \
-#     --region ap-southeast-1
+# Step Functions 자동 실행 (채점 [3-5] workflow-output 데이터 적재)
+resource "null_resource" "sfn_execute" {
+  depends_on = [aws_sfn_state_machine.workflow]
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      aws stepfunctions start-execution \
+        --state-machine-arn ${aws_sfn_state_machine.workflow.arn} \
+        --input '{"bucket":"workflow-input-${var.team_id}","key":"data.csv"}' \
+        --region ap-southeast-1
+    EOT
+  }
+}
