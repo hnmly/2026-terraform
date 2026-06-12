@@ -341,17 +341,15 @@ FBEOF
 
 systemctl restart fluent-bit
 
-# --- kubectl 설치 (항상 검증된 바이너리로 덮어쓰기. AMI에 깨진 kubectl이 있어도 교체) ---
-for i in 1 2 3 4 5; do
-  KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
-  if [ -n "$KVER" ] && curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl"; then
-    if head -c4 /tmp/kubectl | grep -q ELF; then
-      install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
-      break
-    fi
-  fi
-  sleep 10
-done
+# --- kubectl / eksctl 설치 ---
+rm -f /usr/local/bin/kubectl
+curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.33.0/2025-05-01/bin/linux/amd64/kubectl
+chmod +x ./kubectl
+mv ./kubectl /usr/bin/
+
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+mv /tmp/eksctl /usr/local/bin
+eksctl version
 
 # --- helm 설치 (Loki/Grafana 배포용) ---
 curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
