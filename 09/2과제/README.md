@@ -28,11 +28,18 @@ terraform apply -var="team_id=<비번호>" -auto-approve
 
 > Aurora Serverless v2 기동 ~10분, CloudFront 배포 ~3분 소요.
 
-### 4. Module1 result.json 생성 (채점 필수)
+### 4. 후속 작업 (apply 후 수동 실행)
 
 ```bash
+# Module1: result.json 생성 (채점 [1-5] 필수)
 bash files/nosql/query.sh electronics
 cat ~/result.json
+
+# Module3: Step Functions 실행 (채점 [3-5] 필수)
+SFN_ARN=$(aws stepfunctions list-state-machines --region ap-southeast-1 --query "stateMachines[?name=='workflow-state-machine'].stateMachineArn | [0]" --output text)
+aws stepfunctions start-execution --region ap-southeast-1 --state-machine-arn $SFN_ARN --input "{\"bucket\":\"workflow-input-$(terraform output -raw team_id)\",\"key\":\"data.csv\"}"
+sleep 30
+aws dynamodb scan --table-name workflow-output --region ap-southeast-1 --select COUNT
 ```
 
 ### 5. 동작 확인
