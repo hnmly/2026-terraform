@@ -341,9 +341,17 @@ FBEOF
 
 systemctl restart fluent-bit
 
-# --- kubectl 설치 (공식 Kubernetes 릴리스 stable) ---
-curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-chmod +x kubectl && mv kubectl /usr/local/bin/kubectl
+# --- kubectl 설치 (없을 때만, 다운로드 검증 포함) ---
+if ! command -v kubectl >/dev/null 2>&1; then
+  for i in 1 2 3 4 5; do
+    KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
+    if [ -n "$KVER" ] && curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl"; then
+      chmod +x /usr/local/bin/kubectl
+      break
+    fi
+    sleep 10
+  done
+fi
 
 # --- helm 설치 (Loki/Grafana 배포용) ---
 curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
