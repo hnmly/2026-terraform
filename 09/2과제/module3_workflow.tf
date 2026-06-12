@@ -106,6 +106,7 @@ resource "aws_lambda_function" "workflow_transform" {
   timeout          = 60
   filename         = data.archive_file.workflow_lambda.output_path
   source_code_hash = data.archive_file.workflow_lambda.output_base64sha256
+  kms_key_arn      = ""
 
   environment {
     variables = {
