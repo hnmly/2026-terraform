@@ -45,13 +45,88 @@ terraform apply -auto-approve
 
 ---
 
-## 후속 작업 (Bastion SSH 접속 후)
+## Bastion 접속 & 채점 준비
+
+> 두 모듈 모두 부팅 시 자동으로 다음이 구성됩니다.
+> - `kubectl`, `helm` 설치
+> - `ec2-user` SSH 패스워드 접속 허용 (패스워드: `Skill53##`)
+> - 채점 디렉터리 `/home/ec2-user/marking/` 생성
+> - `~/set-kubeconfig.sh` (kubeconfig 설정 헬퍼) 생성
+
+### 방법 A) SSM Session Manager 접속 (CloudShell에서 키 없이, 권장)
+
+```bash
+# 1모듈 Bastion
+INSTANCE_ID=$(aws ec2 describe-instances --region ap-northeast-2 \
+  --filters "Name=tag:Name,Values=wsc-scaling-bastion" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].InstanceId" --output text)
+aws ssm start-session --region ap-northeast-2 --target $INSTANCE_ID
+
+# 3모듈 Bastion(EC2)
+INSTANCE_ID=$(aws ec2 describe-instances --region ap-northeast-1 \
+  --filters "Name=tag:Name,Values=wsc-logging-app-bastion" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].InstanceId" --output text)
+aws ssm start-session --region ap-northeast-1 --target $INSTANCE_ID
+
+# 접속 후 ec2-user로 전환
+sudo su - ec2-user
+```
+
+### 방법 B) SSH 패스워드 접속 (채점관 방식)
+
+```bash
+# Public IP 확인
+aws ec2 describe-instances --region ap-northeast-2 \
+  --filters "Name=tag:Name,Values=wsc-scaling-bastion" \
+  --query "Reservations[0].Instances[0].PublicIpAddress" --output text
+
+ssh ec2-user@<위 IP>   # 패스워드: Skill53##
+```
+
+### kubeconfig 설정 (Bastion 접속 후)
+
+```bash
+# 헬퍼 스크립트 실행 (update-kubeconfig + kubectl get nodes)
+~/set-kubeconfig.sh
+
+# 또는 수동
+aws eks update-kubeconfig --region ap-northeast-2 --name wsc-scaling-cluster   # 1모듈
+aws eks update-kubeconfig --region ap-northeast-1 --name wsc-logging-cluster   # 3모듈
+kubectl get nodes   # Ready 노드 2개 확인
+```
+
+### 채점 스크립트(mark1.sh / mark3.sh) 배치
+
+채점관이 제공하는 스크립트를 Bastion의 `/home/ec2-user/marking/` 에 복사합니다.
+
+```bash
+# (CloudShell 등 로컬에 mark 스크립트가 있을 때) SSM으로 업로드 — Base64 전송
+B64=$(base64 -w0 mark1.sh)
+aws ssm send-command --region ap-northeast-2 \
+  --instance-ids $INSTANCE_ID \
+  --document-name "AWS-RunShellScript" \
+  --parameters "commands=[\"echo $B64 | base64 -d > /home/ec2-user/marking/mark1.sh\",\"chmod +x /home/ec2-user/marking/mark1.sh\",\"chown ec2-user:ec2-user /home/ec2-user/marking/mark1.sh\"]"
+
+# 또는 SSH/scp로 복사
+scp mark1.sh ec2-user@<IP>:/home/ec2-user/marking/   # 패스워드: Skill53##
+
+# Bastion에서 실행
+cd /home/ec2-user/marking
+./mark1.sh    # 1모듈
+./mark3.sh    # 3모듈
+```
+
+> ⚠️ 채점 전제: Bastion에서 `kubectl get nodes` 가 정상 동작해야 mark1.sh / mark3.sh(EKS Object 채점)가 통과합니다. 후속 작업(아래)을 먼저 완료하세요.
+
+---
+
+## 후속 작업 (Bastion 접속 후)
 
 ### 1모듈 후속 작업
 
 ```bash
-# Bastion 접속 후 kubeconfig 설정
-aws eks update-kubeconfig --region ap-northeast-2 --name wsc-scaling-cluster
+# kubeconfig 설정
+~/set-kubeconfig.sh
 
 # Namespace 생성
 kubectl create namespace wsc-scaling
@@ -158,8 +233,8 @@ EOF
 ### 3모듈 후속 작업
 
 ```bash
-# Bastion(EC2)에서 kubeconfig 설정
-aws eks update-kubeconfig --region ap-northeast-1 --name wsc-logging-cluster
+# Bastion(EC2) 접속 후 kubeconfig 설정
+~/set-kubeconfig.sh
 
 # Namespace 생성
 kubectl create namespace wsc-logging

@@ -297,6 +297,34 @@ cat > /etc/fluent-bit/fluent-bit.conf << 'FBEOF'
 FBEOF
 
 systemctl restart fluent-bit
+
+# --- kubectl 설치 (EKS 1.35 대응) ---
+curl -sLO https://s3.us-west-2.amazonaws.com/amazon-eks/1.35.0/2025-01-17/bin/linux/amd64/kubectl
+chmod +x kubectl && mv kubectl /usr/local/bin/kubectl
+
+# --- helm 설치 (Loki/Grafana 배포용) ---
+curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# --- ec2-user SSH 패스워드 접속 허용 (채점관 SSH 대비) ---
+echo "ec2-user:Skill53##" | chpasswd
+sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+find /etc/ssh/sshd_config.d/ -type f -exec sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' {} \;
+systemctl restart sshd
+
+# --- 채점 디렉터리 준비 ---
+mkdir -p /home/ec2-user/marking
+chown -R ec2-user:ec2-user /home/ec2-user/marking
+
+# --- kubeconfig 자동 설정 스크립트 ---
+cat > /home/ec2-user/set-kubeconfig.sh << 'KCEOF'
+#!/bin/bash
+aws eks update-kubeconfig --region ap-northeast-1 --name wsc-logging-cluster
+kubectl get nodes
+KCEOF
+chmod +x /home/ec2-user/set-kubeconfig.sh
+chown ec2-user:ec2-user /home/ec2-user/set-kubeconfig.sh
+
+sudo -u ec2-user bash -c "aws eks update-kubeconfig --region ap-northeast-1 --name wsc-logging-cluster" || true
 EOF
 
   tags = { Name = "${local.name}-app-bastion" }
