@@ -23,9 +23,7 @@ module-3/
 
 ```bash
 # Terraform 설치
-sudo yum install -y yum-utils
-sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
-sudo yum -y install terraform
+sudo yum install -y yum-utils && sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo && sudo yum -y install terraform
 
 # 공유 플러그인 캐시 (CloudShell 1GB 용량 부족 방지 - 한 번만)
 mkdir -p ~/.terraform.d/plugin-cache
@@ -61,9 +59,7 @@ sudo su - ec2-user
 
 # Bastion 안에서: terraform 없으면 설치 (예전에 만든 bastion 대비)
 command -v terraform || {
-  sudo yum install -y yum-utils
-  sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
-  sudo yum -y install terraform
+  sudo yum install -y yum-utils && sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo && sudo yum -y install terraform
 }
 
 git clone https://github.com/hnmly/2026-terraform.git
@@ -94,9 +90,7 @@ sudo su - ec2-user
 
 # Bastion 안에서: terraform 없으면 설치 (예전에 만든 bastion 대비)
 command -v terraform || {
-  sudo yum install -y yum-utils
-  sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
-  sudo yum -y install terraform
+  sudo yum install -y yum-utils && sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo && sudo yum -y install terraform
 }
 
 git clone https://github.com/hnmly/2026-terraform.git
