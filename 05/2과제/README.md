@@ -50,12 +50,11 @@ terraform init && terraform apply -auto-approve
 
 ### Step 2: K8s 워크로드 — Bastion에서 (root는 EKS 인증 불가)
 ```bash
-# Bastion 접속 (SSM 또는 SSH)
-IID=$(aws ec2 describe-instances --region ap-northeast-2 \
-  --filters "Name=tag:Name,Values=wsc-scaling-bastion" "Name=instance-state-name,Values=running" \
-  --query "Reservations[0].Instances[0].InstanceId" --output text)
-aws ssm start-session --region ap-northeast-2 --target $IID
-sudo su - ec2-user
+# Bastion SSH 접속 (키는 infra apply 시 module-1/infra/wsc-scaling-bastion.pem 으로 생성됨)
+IP=$(cd ~/2026-terraform/05/2*/module-1/infra && terraform output -raw bastion_public_ip)
+KEY=~/2026-terraform/05/2*/module-1/infra/wsc-scaling-bastion.pem
+chmod 400 $KEY
+ssh -i $KEY ec2-user@$IP
 
 # Bastion 안에서: terraform 없으면 설치 (예전에 만든 bastion 대비)
 command -v terraform || {
@@ -81,12 +80,11 @@ terraform init && terraform apply -auto-approve
 
 ### Step 2: 로깅 스택 — Bastion(EC2)에서
 ```bash
-# Bastion(EC2) 접속
-IID=$(aws ec2 describe-instances --region ap-northeast-1 \
-  --filters "Name=tag:Name,Values=wsc-logging-app-bastion" "Name=instance-state-name,Values=running" \
-  --query "Reservations[0].Instances[0].InstanceId" --output text)
-aws ssm start-session --region ap-northeast-1 --target $IID
-sudo su - ec2-user
+# Bastion(EC2) SSH 접속 (키는 module-3/infra/wsc-logging-app.pem 으로 생성됨)
+IP=$(cd ~/2026-terraform/05/2*/module-3/infra && terraform output -raw ec2_public_ip)
+KEY=~/2026-terraform/05/2*/module-3/infra/wsc-logging-app.pem
+chmod 400 $KEY
+ssh -i $KEY ec2-user@$IP
 
 # Bastion 안에서: terraform 없으면 설치 (예전에 만든 bastion 대비)
 command -v terraform || {
@@ -107,13 +105,16 @@ terraform init && terraform apply -auto-approve -var pin=<비번호>
 
 Bastion 부팅 시 자동 구성:
 - kubectl, eksctl, helm 설치
-- SSH 패스워드 `Skill53##` (ec2-user)
-- `~/marking/` 디렉터리
-- `~/set-kubeconfig.sh`
+- `~/marking/` 디렉터리, `~/set-kubeconfig.sh`
+
+SSH 키는 infra apply 시 생성됩니다:
+- module-1: `module-1/infra/wsc-scaling-bastion.pem`
+- module-3: `module-3/infra/wsc-logging-app.pem`
 
 ```bash
-# SSH 접속
-ssh ec2-user@<Bastion-IP>    # 패스워드: Skill53##
+# SSH 접속 (키페어)
+chmod 400 wsc-scaling-bastion.pem
+ssh -i wsc-scaling-bastion.pem ec2-user@<Bastion-IP>
 
 # kubeconfig 설정
 ~/set-kubeconfig.sh
@@ -124,9 +125,9 @@ cd ~/marking
 ./mark3.sh   # module-3
 ```
 
-채점 스크립트 업로드 (CloudShell → Bastion):
+채점 스크립트 업로드:
 ```bash
-scp mark1.sh ec2-user@<IP>:~/marking/
+scp -i wsc-scaling-bastion.pem mark1.sh ec2-user@<IP>:~/marking/
 ```
 
 ---

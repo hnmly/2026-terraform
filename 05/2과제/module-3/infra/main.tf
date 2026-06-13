@@ -4,6 +4,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.5"
+    }
   }
 }
 
@@ -164,6 +172,23 @@ resource "aws_iam_instance_profile" "ec2" {
 }
 
 # EC2 Instance (App + FluentBit)
+# SSH 키페어 (채점관 SSH 접속용)
+resource "tls_private_key" "ec2" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "ec2" {
+  key_name_prefix = "wsc-logging-app-"
+  public_key      = tls_private_key.ec2.public_key_openssh
+}
+
+resource "local_sensitive_file" "ec2_key" {
+  content         = tls_private_key.ec2.private_key_pem
+  filename        = "${path.module}/wsc-logging-app.pem"
+  file_permission = "0400"
+}
+
 data "aws_ami" "al2023" {
   most_recent = true
   owners      = ["amazon"]
@@ -183,6 +208,7 @@ resource "aws_instance" "app" {
   subnet_id              = aws_subnet.pub_a.id
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
+  key_name               = aws_key_pair.ec2.key_name
 
   user_data = <<-EOF
 #!/bin/bash
@@ -495,4 +521,12 @@ resource "aws_eks_addon" "ebs_csi" {
 
 output "ec2_instance_id" {
   value = aws_instance.app.id
+}
+output "ec2_private_key" {
+  value     = tls_private_key.ec2.private_key_pem
+  sensitive = true
+}
+
+output "ec2_key_file" {
+  value = local_sensitive_file.ec2_key.filename
 }

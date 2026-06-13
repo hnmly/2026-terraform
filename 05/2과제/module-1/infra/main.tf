@@ -4,6 +4,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.5"
+    }
   }
 }
 
@@ -156,6 +164,23 @@ resource "aws_iam_instance_profile" "bastion" {
   role = aws_iam_role.bastion.name
 }
 
+# SSH 키페어 (채점관 SSH 접속용)
+resource "tls_private_key" "bastion" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "bastion" {
+  key_name_prefix = "wsc-scaling-bastion-"
+  public_key      = tls_private_key.bastion.public_key_openssh
+}
+
+resource "local_sensitive_file" "bastion_key" {
+  content         = tls_private_key.bastion.private_key_pem
+  filename        = "${path.module}/wsc-scaling-bastion.pem"
+  file_permission = "0400"
+}
+
 data "aws_ami" "al2023" {
   most_recent = true
   owners      = ["amazon"]
@@ -181,6 +206,7 @@ resource "aws_instance" "bastion" {
   subnet_id              = aws_subnet.pub_a.id
   vpc_security_group_ids = [aws_security_group.bastion.id]
   iam_instance_profile   = aws_iam_instance_profile.bastion.name
+  key_name               = aws_key_pair.bastion.key_name
 
   user_data = <<-EOF
 #!/bin/bash
@@ -356,4 +382,16 @@ output "node_role_arn" {
 
 output "node_role_name" {
   value = aws_iam_role.eks_node.name
+}
+
+output "bastion_private_key" {
+  value     = tls_private_key.bastion.private_key_pem
+  sensitive = true
+}
+
+output "bastion_key_file" {
+  value = local_sensitive_file.bastion_key.filename
+}
+output "bastion_public_ip" {
+  value = aws_eip.bastion.public_ip
 }
