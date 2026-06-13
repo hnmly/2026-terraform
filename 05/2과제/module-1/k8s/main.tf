@@ -66,30 +66,9 @@ provider "kubectl" {
   load_config_file       = false
 }
 
-# 현재 terraform 실행 주체를 클러스터 admin으로 등록 (Unauthorized 방지)
-data "aws_caller_identity" "current" {}
-
-data "aws_iam_session_context" "current" {
-  arn = data.aws_caller_identity.current.arn
-}
-
-resource "aws_eks_access_entry" "runner" {
-  cluster_name  = data.aws_eks_cluster.main.name
-  principal_arn = data.aws_iam_session_context.current.issuer_arn
-  type          = "STANDARD"
-}
-
-resource "aws_eks_access_policy_association" "runner" {
-  cluster_name  = data.aws_eks_cluster.main.name
-  principal_arn = data.aws_iam_session_context.current.issuer_arn
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-  access_scope { type = "cluster" }
-}
-
 # Namespace
 resource "kubernetes_namespace" "scaling" {
   metadata { name = "wsc-scaling" }
-  depends_on = [aws_eks_access_policy_association.runner]
 }
 
 # Deployment
@@ -129,7 +108,6 @@ resource "helm_release" "keda" {
   create_namespace = true
   wait             = true
   timeout          = 600
-  depends_on       = [aws_eks_access_policy_association.runner]
 }
 
 resource "kubectl_manifest" "scaledobject" {
@@ -231,7 +209,7 @@ resource "helm_release" "karpenter" {
     name  = "serviceAccount.name"
     value = "karpenter"
   }
-  depends_on = [aws_eks_pod_identity_association.karpenter, aws_eks_access_policy_association.runner]
+  depends_on = [aws_eks_pod_identity_association.karpenter]
 }
 
 resource "kubectl_manifest" "ec2nodeclass" {

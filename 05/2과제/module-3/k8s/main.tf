@@ -73,26 +73,6 @@ provider "kubectl" {
   load_config_file       = false
 }
 
-# 현재 terraform 실행 주체를 클러스터 admin으로 등록 (Unauthorized 방지)
-data "aws_caller_identity" "current" {}
-
-data "aws_iam_session_context" "current" {
-  arn = data.aws_caller_identity.current.arn
-}
-
-resource "aws_eks_access_entry" "runner" {
-  cluster_name  = data.aws_eks_cluster.main.name
-  principal_arn = data.aws_iam_session_context.current.issuer_arn
-  type          = "STANDARD"
-}
-
-resource "aws_eks_access_policy_association" "runner" {
-  cluster_name  = data.aws_eks_cluster.main.name
-  principal_arn = data.aws_iam_session_context.current.issuer_arn
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-  access_scope { type = "cluster" }
-}
-
 # 기본 StorageClass (gp3)
 resource "kubernetes_storage_class" "gp3" {
   metadata {
@@ -107,7 +87,6 @@ resource "kubernetes_storage_class" "gp3" {
   parameters = {
     type = "gp3"
   }
-  depends_on = [aws_eks_access_policy_association.runner]
 }
 
 # Namespace
@@ -115,7 +94,6 @@ resource "kubernetes_namespace" "logging" {
   metadata {
     name = "wsc-logging"
   }
-  depends_on = [aws_eks_access_policy_association.runner]
 }
 
 # Loki (SingleBinary, filesystem PVC 10Gi)

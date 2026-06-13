@@ -1,5 +1,10 @@
 # 05 2과제 - module-1(EKS Scaling) / module-3(Container Logging)
 
+> ⚠️ **중요 - 실행 위치**
+> - **infra** (VPC/EKS/EC2 등 AWS 리소스): **CloudShell**에서 apply
+> - **k8s** (Namespace/Helm/KEDA/Karpenter/Loki/Grafana): 반드시 **Bastion에서 apply**
+>   (AWS 계정 root 유저는 EKS 클러스터 API 인증이 불가. Bastion 역할은 ClusterAdmin access entry 보유)
+
 ## 구조
 
 ```
@@ -38,17 +43,26 @@ git clone https://github.com/hnmly/2026-terraform.git
 
 ## 1. module-1 (EKS Scaling, ap-northeast-2)
 
+### Step 1: 인프라 — CloudShell에서
 ```bash
-# Step 1: 인프라
 cd ~/2026-terraform/05/2*/module-1/infra
-terraform init
-terraform apply -auto-approve
-# ⏱ ~15분 (EKS 클러스터 + NodeGroup)
+terraform init && terraform apply -auto-approve
+# ⏱ ~15분 (EKS + NodeGroup + Bastion)
+```
 
-# Step 2: K8s 워크로드 (Step 1 완료 후)
-cd ../k8s
-terraform init
-terraform apply -auto-approve
+### Step 2: K8s 워크로드 — Bastion에서 (root는 EKS 인증 불가)
+```bash
+# Bastion 접속 (SSM 또는 SSH)
+IID=$(aws ec2 describe-instances --region ap-northeast-2 \
+  --filters "Name=tag:Name,Values=wsc-scaling-bastion" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].InstanceId" --output text)
+aws ssm start-session --region ap-northeast-2 --target $IID
+sudo su - ec2-user
+
+# Bastion 안에서 (terraform/kubectl/helm 사전 설치됨)
+git clone https://github.com/hnmly/2026-terraform.git
+cd 2026-terraform/05/2*/module-1/k8s
+terraform init && terraform apply -auto-approve
 # ⏱ ~5분 (KEDA + Karpenter + Deployment)
 ```
 
@@ -56,18 +70,27 @@ terraform apply -auto-approve
 
 ## 2. module-3 (Container Logging, ap-northeast-1)
 
+### Step 1: 인프라 — CloudShell에서
 ```bash
-# Step 1: 인프라 (VPC, EC2+앱+FluentBit, EKS, EBS CSI)
 cd ~/2026-terraform/05/2*/module-3/infra
-terraform init
-terraform apply -auto-approve
-# ⏱ ~18분
+terraform init && terraform apply -auto-approve
+# ⏱ ~18분 (EKS + EC2(앱+FluentBit) + EBS CSI)
+```
 
-# Step 2: 로깅 스택 (Loki, Grafana, FluentBit 연동) - Step 1 완료 후
-cd ../k8s
-terraform init
-terraform apply -auto-approve -var pin=<비번호>
-# ⏱ ~7분
+### Step 2: 로깅 스택 — Bastion(EC2)에서
+```bash
+# Bastion(EC2) 접속
+IID=$(aws ec2 describe-instances --region ap-northeast-1 \
+  --filters "Name=tag:Name,Values=wsc-logging-app-bastion" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].InstanceId" --output text)
+aws ssm start-session --region ap-northeast-1 --target $IID
+sudo su - ec2-user
+
+# Bastion 안에서
+git clone https://github.com/hnmly/2026-terraform.git
+cd 2026-terraform/05/2*/module-3/k8s
+terraform init && terraform apply -auto-approve -var pin=<비번호>
+# ⏱ ~7분 (Loki + Grafana + FluentBit 연동)
 ```
 
 > `pin`은 본인 비번호 (Grafana 계정: `wsc2026-admin-<pin>` / `admin<pin>!`)

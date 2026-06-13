@@ -314,6 +314,11 @@ eksctl version
 # --- helm 설치 (Loki/Grafana 배포용) ---
 curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+# --- terraform 설치 (k8s 레이어를 bastion에서 apply) ---
+yum install -y yum-utils
+yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+yum -y install terraform
+
 # --- ec2-user SSH 패스워드 접속 허용 (채점관 SSH 대비) ---
 echo "ec2-user:Skill53##" | chpasswd
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
