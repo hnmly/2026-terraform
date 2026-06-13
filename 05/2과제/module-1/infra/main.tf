@@ -177,7 +177,7 @@ resource "aws_key_pair" "bastion" {
 
 resource "local_sensitive_file" "bastion_key" {
   content         = tls_private_key.bastion.private_key_pem
-  filename        = "${path.module}/wsc-scaling-bastion.pem"
+  filename        = "${path.module}/${aws_key_pair.bastion.key_name}.pem"
   file_permission = "0400"
 }
 

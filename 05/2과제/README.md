@@ -50,9 +50,10 @@ terraform init && terraform apply -auto-approve
 
 ### Step 2: K8s 워크로드 — Bastion에서 (root는 EKS 인증 불가)
 ```bash
-# Bastion SSH 접속 (키는 infra apply 시 module-1/infra/wsc-scaling-bastion.pem 으로 생성됨)
-IP=$(cd ~/2026-terraform/05/2*/module-1/infra && terraform output -raw bastion_public_ip)
-KEY=~/2026-terraform/05/2*/module-1/infra/wsc-scaling-bastion.pem
+# Bastion SSH 접속 (.pem은 Step1 infra apply 시 infra 디렉터리에 생성됨)
+DIR=~/2026-terraform/05/2*/module-1/infra
+IP=$(cd $DIR && terraform output -raw bastion_public_ip)
+KEY=$(ls $DIR/*.pem)
 chmod 400 $KEY
 ssh -i $KEY ec2-user@$IP
 
@@ -80,9 +81,10 @@ terraform init && terraform apply -auto-approve
 
 ### Step 2: 로깅 스택 — Bastion(EC2)에서
 ```bash
-# Bastion(EC2) SSH 접속 (키는 module-3/infra/wsc-logging-app.pem 으로 생성됨)
-IP=$(cd ~/2026-terraform/05/2*/module-3/infra && terraform output -raw ec2_public_ip)
-KEY=~/2026-terraform/05/2*/module-3/infra/wsc-logging-app.pem
+# Bastion(EC2) SSH 접속 (.pem은 Step1 infra apply 시 infra 디렉터리에 생성됨)
+DIR=~/2026-terraform/05/2*/module-3/infra
+IP=$(cd $DIR && terraform output -raw ec2_public_ip)
+KEY=$(ls $DIR/*.pem)
 chmod 400 $KEY
 ssh -i $KEY ec2-user@$IP
 
@@ -101,56 +103,40 @@ terraform init && terraform apply -auto-approve -var pin=<비번호>
 
 ---
 
-## 3. Bastion 접속 & 채점
+## 3. 채점 (Bastion)
 
-Bastion 부팅 시 자동 구성:
-- kubectl, eksctl, helm 설치
-- `~/marking/` 디렉터리, `~/set-kubeconfig.sh`
-
-SSH 키는 infra apply 시 생성됩니다:
-- module-1: `module-1/infra/wsc-scaling-bastion.pem`
-- module-3: `module-3/infra/wsc-logging-app.pem`
+Bastion 부팅 시 자동 구성: kubectl/eksctl/helm, `~/marking/`, `~/set-kubeconfig.sh`.
+채점 스크립트 실행은 위 Step 2에서 SSH로 접속한 Bastion 안에서 진행합니다:
 
 ```bash
-# SSH 접속 (키페어)
-chmod 400 wsc-scaling-bastion.pem
-ssh -i wsc-scaling-bastion.pem ec2-user@<Bastion-IP>
-
-# kubeconfig 설정
-~/set-kubeconfig.sh
-
-# 채점 스크립트 실행
+~/set-kubeconfig.sh        # kubeconfig + kubectl get nodes
 cd ~/marking
-./mark1.sh   # module-1
-./mark3.sh   # module-3
+./mark1.sh   # module-1 (또는 ./mark3.sh)
 ```
 
-채점 스크립트 업로드:
+채점 스크립트 업로드 (CloudShell → Bastion):
 ```bash
-scp -i wsc-scaling-bastion.pem mark1.sh ec2-user@<IP>:~/marking/
-```
-### 로컬 PC로 키 가져오기 (로컬에서 SSH 할 때)
-
-infra apply는 CloudShell에서 돌리므로 `.pem`은 CloudShell에 생성됩니다. 로컬로 가져오는 방법:
-
-방법 1 — CloudShell 다운로드: 우측 상단 **Actions → Download file**
-```
-# (한글 경로 다운 안 되면 홈으로 복사 후 다운로드)
-cp ~/2026-terraform/05/2*/module-1/infra/wsc-scaling-bastion.pem ~/bastion.pem
-# Download file 경로: /home/cloudshell-user/bastion.pem
+DIR=~/2026-terraform/05/2*/module-1/infra
+IP=$(cd $DIR && terraform output -raw bastion_public_ip)
+KEY=$(ls $DIR/*.pem)
+scp -i $KEY mark1.sh ec2-user@$IP:~/marking/
 ```
 
-방법 2 — 키 텍스트 복사 (CloudShell):
+### 채점관이 본인 PC에서 SSH 할 때 (키를 로컬로)
+
+`.pem` 파일명 = AWS 키페어 이름 (예: `wsc-scaling-bastion-2026....pem`). CloudShell에 생성됨.
+
 ```bash
+# CloudShell: 키 내용 출력 → 로컬 파일로 저장
 cd ~/2026-terraform/05/2*/module-1/infra
 terraform output -raw bastion_private_key
-# 출력된 -----BEGIN ... END----- 전체를 로컬 bastion.pem 에 저장
+# 또는 Actions > Download file 로 infra/*.pem 다운로드
 ```
 
-로컬 Windows PowerShell에서 SSH (chmod 대신 icacls):
+로컬 Windows PowerShell:
 ```powershell
-icacls bastion.pem /inheritance:r /grant:r "$($env:USERNAME):R"
-ssh -i bastion.pem ec2-user@<Bastion-IP>
+icacls key.pem /inheritance:r /grant:r "$($env:USERNAME):R"
+ssh -i key.pem ec2-user@<Bastion-IP>
 ```
 
 ---

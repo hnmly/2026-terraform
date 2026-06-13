@@ -185,7 +185,7 @@ resource "aws_key_pair" "ec2" {
 
 resource "local_sensitive_file" "ec2_key" {
   content         = tls_private_key.ec2.private_key_pem
-  filename        = "${path.module}/wsc-logging-app.pem"
+  filename        = "${path.module}/${aws_key_pair.ec2.key_name}.pem"
   file_permission = "0400"
 }
 
