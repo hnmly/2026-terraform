@@ -59,7 +59,13 @@ IID=$(aws ec2 describe-instances --region ap-northeast-2 \
 aws ssm start-session --region ap-northeast-2 --target $IID
 sudo su - ec2-user
 
-# Bastion 안에서 (terraform/kubectl/helm 사전 설치됨)
+# Bastion 안에서: terraform 없으면 설치 (예전에 만든 bastion 대비)
+command -v terraform || {
+  sudo yum install -y yum-utils
+  sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+  sudo yum -y install terraform
+}
+
 git clone https://github.com/hnmly/2026-terraform.git
 cd 2026-terraform/05/2*/module-1/k8s
 terraform init && terraform apply -auto-approve
@@ -86,7 +92,13 @@ IID=$(aws ec2 describe-instances --region ap-northeast-1 \
 aws ssm start-session --region ap-northeast-1 --target $IID
 sudo su - ec2-user
 
-# Bastion 안에서
+# Bastion 안에서: terraform 없으면 설치 (예전에 만든 bastion 대비)
+command -v terraform || {
+  sudo yum install -y yum-utils
+  sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+  sudo yum -y install terraform
+}
+
 git clone https://github.com/hnmly/2026-terraform.git
 cd 2026-terraform/05/2*/module-3/k8s
 terraform init && terraform apply -auto-approve -var pin=<비번호>
