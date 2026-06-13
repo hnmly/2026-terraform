@@ -187,6 +187,65 @@ stress   2686   100.0%  71.7%   0.594  1.907  2.274  2.974
 | **perf 100%인데 nodes 많음** | 과투자(비용 낭비) | `requests.cpu`↓ / `averageUtilization`↑ / `max_replicas`↓ |
 | **특정 앱만 나쁨** | 그 앱만 무거움 | **그 앱만** 키운다 (모든 앱 똑같이 X) |
 
+### 어떻게 바꾸나 (구체적 방법)
+
+바꿀 손잡이는 딱 3개, 전부 `terraform/k8s_apps.tf`의 **각 앱**에 있다.
+
+```hcl
+# (1) CPU 요청량 — kubernetes_deployment.<app> 의 container 안
+resources {
+  requests = { cpu = "900m", memory = "128Mi" }   # ← 이 cpu 숫자
+  limits   = { memory = "512Mi" }
+}
+
+# (2) HPA — kubernetes_horizontal_pod_autoscaler_v2.<app> 안
+spec {
+  min_replicas = 3      # ← 시작 파드 수 (천장/바닥)
+  max_replicas = 10     # ← 최대 파드 수
+  metric {
+    resource {
+      name = "cpu"
+      target { type = "Utilization", average_utilization = 55 }  # ← 이 숫자 낮출수록 빨리 스케일아웃
+    }
+  }
+}
+```
+
+**손잡이별 효과 (한 방향만 기억)**
+- `requests.cpu` ↑ → 파드 1개가 더 세짐(꼬리지연↓) / 단 노드 더 필요(비용↑)
+- `average_utilization` ↓ → 더 **빨리·자주** 파드 늘림(성능↑/비용↑), ↑ → 느긋(비용↓)
+- `min_replicas` ↑ → 부하 초반부터 여유(avail↑) / `max_replicas` ↑ → 폭주 시 천장↑
+
+**두 가지 적용 방법**
+
+① **빠른 실험 (즉시 반영, 임시)** — 코드 고치기 전에 효과만 확인:
+```bash
+# 예: stress 만 CPU 900m, HPA min3/max10/util45 로 즉시 변경
+kubectl -n app set resources deploy/stress --requests=cpu=900m
+kubectl -n app patch hpa stress --type=merge -p \
+  '{"spec":{"minReplicas":3,"maxReplicas":10,"metrics":[{"type":"Resource","resource":{"name":"cpu","target":{"type":"Utilization","averageUtilization":45}}}]}}'
+kubectl -n app rollout status deploy/stress
+# 다시 측정해서 perf% 올랐는지 확인
+./loadtest.sh http://<endpoint> 180s after
+```
+→ 좋으면 ②로 코드에 박는다. (이 patch는 `terraform apply`나 재배포 시 사라짐)
+
+② **영구 반영** — 위 (1)(2) 숫자를 `k8s_apps.tf`에서 그 앱만 수정 후:
+```bash
+cd terraform && terraform apply -auto-approve
+```
+
+**처방별 구체 예시 (전 → 후)**
+| 상황 | 무엇을 | 전 → 후 |
+|---|---|---|
+| stress perf% 낮음(꼬리지연) | stress `cpu` | `300m → 900m` |
+| stress 스케일이 느림 | stress HPA `util` / `min` | `55 → 45` / `2 → 3` |
+| avail < 99% | 해당 앱 `min_replicas` | `2 → 3~4` |
+| perf 100%인데 노드 과다 | user/product `cpu`/`util` | `300m → 200m` / `55 → 65` |
+| 폭주에 천장 막힘 | `max_replicas` | `10 → 12` |
+
+> 한 번에 하나씩만 바꾸고 → `loadtest`로 재측정 → 효과 확인. 여러 개 동시에 바꾸면 뭐가 효과인지 모름.
+
 ### autotune 우승값을 그대로 쓰면 안 되는 이유
 `autotune.sh`는 **모든 앱에 똑같은 cpu/util**을 적용해 비교한다. 그래서 우승값(예: `300m 균일`)을
 그대로 박으면:
