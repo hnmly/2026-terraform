@@ -319,11 +319,6 @@ yum install -y yum-utils
 yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
 yum -y install terraform
 
-# --- ec2-user SSH 패스워드 접속 허용 (채점관 SSH 대비) ---
-echo "ec2-user:Skill53##" | chpasswd
-sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-find /etc/ssh/sshd_config.d/ -type f -exec sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' {} \;
-systemctl restart sshd
 
 # --- 채점 디렉터리 준비 ---
 mkdir -p /home/ec2-user/marking

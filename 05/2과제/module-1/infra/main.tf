@@ -196,10 +196,6 @@ curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 |
 yum install -y yum-utils
 yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
 yum -y install terraform
-echo "ec2-user:Skill53##" | chpasswd
-sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-find /etc/ssh/sshd_config.d/ -type f -exec sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' {} \;
-systemctl restart sshd
 mkdir -p /home/ec2-user/marking
 cat > /home/ec2-user/set-kubeconfig.sh << 'KCEOF'
 #!/bin/bash
