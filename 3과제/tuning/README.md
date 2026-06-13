@@ -147,3 +147,87 @@ nodes      min=2 max=6 avg=3.40  (cost proxy avg/2 = 1.70)
 
 > 부하는 Karpenter 노드를 띄워 **비용 발생**. 끝나면 consolidation(~60s) 확인,
 > 종료 시 `terraform destroy`.
+
+---
+
+## 결과 쉽게 읽는 법 (초보용)
+
+`loadtest.sh` / `autotune.sh` 출력을 한 줄씩 풀면:
+
+```
+api      n      avail%  perf%   p50    p95    p99    max
+stress   2686   100.0%  71.7%   0.594  1.907  2.274  2.974
+```
+
+| 항목 | 뜻 | 쉽게 |
+|---|---|---|
+| `n`       | 보낸 요청 수 | 클수록 통계 믿을만 |
+| `avail%`  | 5초 안에 성공(2xx)한 비율 | **가용성 점수**. 99% 밑이면 큰일(요청 실패/지연) |
+| `perf%`   | **SLO 시간 안**에 답한 비율 | **성능 점수**. 높을수록 좋음 |
+| `p50`     | 절반이 이 시간 안에 응답 | 보통 빠름 |
+| `p95/p99` | 상위 5%/1% 느린 요청 시간 | **여기가 SLO 넘으면 perf% 깎임 (꼬리지연)** |
+| `max`     | 가장 느린 1건 | 참고용 |
+| `nodes avg` | 테스트 중 평균 노드 수 | **비용**. 낮을수록 비용 점수↑ |
+
+**핵심 직관 3가지**
+1. `perf%`가 낮은 API = **느린 API**. 거기만 고치면 됨 (다른 API 건들 필요 X).
+2. `p50`은 통과인데 `p95/p99`가 SLO 초과 = **꼬리지연** = 부하 몰릴 때 CPU 부족/스케일이 느린 것.
+3. `avail%`가 99% 밑 = **용량 자체가 부족**(요청이 5초 넘거나 에러). 비용보다 무조건 먼저 해결.
+
+> 위 예시: user/product는 perf 100%(완벽), **stress만 71.7%**라 stress가 병목. p50 0.6초는 통과인데 p95 1.9초가 SLO(1.0초)를 넘어서 점수가 깎임 → "부하 시 stress가 CPU에 막힌다"는 신호.
+
+---
+
+## 해석값 → 어떤 설정을 바꿀까 (처방표)
+
+| 증상 (무엇을 보나) | 원인 | 바꿀 설정 (`terraform/k8s_apps.tf`) |
+|---|---|---|
+| **avail% < 99%** | 용량 부족 (요청 실패/5초 초과) | `min_replicas`↑, `requests.cpu`↑ — **비용보다 최우선** (채점 게이트) |
+| **perf% 낮음 + p95 ≫ SLO** | 그 앱 CPU 부족 / 스케일이 느림 | 그 앱 `requests.cpu`↑ / HPA `averageUtilization`↓(빨리 스케일아웃) / `min_replicas`↑ |
+| **perf 100%인데 nodes 많음** | 과투자(비용 낭비) | `requests.cpu`↓ / `averageUtilization`↑ / `max_replicas`↓ |
+| **특정 앱만 나쁨** | 그 앱만 무거움 | **그 앱만** 키운다 (모든 앱 똑같이 X) |
+
+### autotune 우승값을 그대로 쓰면 안 되는 이유
+`autotune.sh`는 **모든 앱에 똑같은 cpu/util**을 적용해 비교한다. 그래서 우승값(예: `300m 균일`)을
+그대로 박으면:
+- user/product엔 **과함** → 노드 늘어 비용↑
+- stress엔 **부족** → 성능 그대로
+
+→ 우승값은 "대략 어느 방향"만 참고하고, **실제 반영은 앱별로 다르게** 한다.
+예) user/product `cpu=200m`, stress `cpu=750~900m`.
+
+### 점수 읽을 때 주의
+- `autotune`은 보통 **90초** 런이라 노이즈가 크다. 1~2점 차이는 **동률**로 본다.
+- 점수 = `평균 perf% − (노드평균−2)×비용패널티 − (가용성<게이트면 −50)`.
+  → 가용성 게이트(`AVAIL_GATE`, 기본 99%)를 못 넘기면 아무리 싸도 −50으로 탈락.
+
+---
+
+## 적용 절차 (영구 반영)
+
+autotune의 `kubectl patch`는 **임시**(클러스터 재배포 시 사라짐). 진짜 반영은 코드 수정:
+
+```hcl
+# terraform/k8s_apps.tf — 앱별로 따로 설정
+# 예) stress 만 CPU를 키우고 빨리 스케일
+resource "kubernetes_deployment" "stress" {
+  # ...
+  resources {
+    requests = { cpu = "900m", memory = "128Mi" }   # ← 무거운 앱만 ↑
+  }
+}
+resource "kubernetes_horizontal_pod_autoscaler_v2" "stress" {
+  spec {
+    min_replicas = 3        # ← 시작부터 여유
+    max_replicas = 10
+    metric { resource { target { average_utilization = 55 } } }  # ← 낮출수록 빨리 스케일
+  }
+}
+```
+
+```bash
+cd terraform && terraform apply -auto-approve
+```
+
+> 요약: **perf% 낮은 그 앱 하나만** 골라 → `cpu↑` 또는 `HPA util↓/min↑` → 비용(`nodes avg`)과
+> 균형 맞추고 → `k8s_apps.tf`에 박아서 `apply`. 가용성 99%는 무조건 사수.
