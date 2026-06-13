@@ -17,13 +17,22 @@ module-3/
 ## 0. 사전 준비 (CloudShell)
 
 ```bash
+# Terraform 설치
 sudo yum install -y yum-utils
 sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
 sudo yum -y install terraform
 
+# 공유 플러그인 캐시 (CloudShell 1GB 용량 부족 방지 - 한 번만)
+mkdir -p ~/.terraform.d/plugin-cache
+cat > ~/.terraformrc <<'RC'
+plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"
+RC
+
 cd ~
 git clone https://github.com/hnmly/2026-terraform.git
 ```
+
+> 용량 부족(`no space left`) 시: `find ~/2026-terraform -type d -name ".terraform" -exec rm -rf {} +` 로 중복 캐시 정리 후 재시도.
 
 ---
 
