@@ -21,6 +21,7 @@ resource "null_resource" "build_push" {
       aws ecr get-login-password --region ${var.region} \
         | docker login --username AWS --password-stdin "$registry"
       for app in user product stress; do
+        chmod +x "$app"
         printf 'FROM gcr.io/distroless/static-debian12:nonroot\nCOPY %s /app\nEXPOSE 8080\nENTRYPOINT ["/app"]\n' "$app" > "Dockerfile.$app"
         docker build --platform linux/amd64 -f "Dockerfile.$app" \
           -t "$registry/${local.name}/$app:${var.app_image_tag}" .
