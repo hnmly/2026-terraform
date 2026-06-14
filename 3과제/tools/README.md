@@ -16,6 +16,32 @@
 - kubeconfig: `aws eks update-kubeconfig --name <클러스터명> --region ap-northeast-2`
 - 리소스 사용량(CPU/MEM)은 metrics-server 필요(이 프로젝트는 애드온으로 설치됨)
 
+## 웹 대시보드 (`dashboard.py` · Flask · 다크 UI)
+
+검정 테마 + 헤더에서 **시간창 1/5/10/15/20/25/30분** 선택 + 자동 갱신(5~60s).
+데이터 수집은 `monitor.py` 로직을 그대로 재사용합니다.
+
+```bash
+pip3 install --user flask                 # 최초 1회 (CloudShell/로컬 공통)
+cd ~/2026-terraform/3과제/tools
+aws eks update-kubeconfig --name wsi2026b-cluster --region ap-northeast-2
+python3 dashboard.py --namespace app --waf-log-group aws-waf-logs-wsi2026b
+# → http://<host>:8080
+```
+
+### CloudShell에서 브라우저로 보려면 → 임시 터널
+CloudShell은 포트 직접 접속이 안 되므로 **임시 공개 URL 터널**(cloudflared)로 봅니다:
+```bash
+mkdir -p ~/bin
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o ~/bin/cloudflared && chmod +x ~/bin/cloudflared
+python3 dashboard.py --namespace app --port 8080 &      # 대시보드 백그라운드 실행
+~/bin/cloudflared tunnel --url http://localhost:8080    # 출력되는 https://...trycloudflare.com 을 브라우저로
+```
+> ⚠️ 터널 URL은 **인증이 없습니다**. 잠깐 확인용으로만 쓰고 끝나면 `cloudflared`/대시보드 모두 종료(Ctrl+C, kill). 공개 노출 주의.
+
+로컬 PC(브라우저 가능)면 터널 없이 바로 `python3 dashboard.py` 후 `http://127.0.0.1:8080`.
+
+> 설치 없이 쓰려면 `monitor.py`(표준 라이브러리)로 동일 데이터 확인 — 아래 참고.
 ## 실행 환경별 보기
 
 > ⚠️ **AWS CloudShell은 브라우저로 localhost 포트에 접속하는 기능(포트포워딩/웹 프리뷰)이 없습니다.**
