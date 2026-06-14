@@ -67,8 +67,15 @@ func handleStress(c *gin.Context) {
 	size := req.Length * 4 * 1024
 	buf := make([]byte, size)
 	rand.Read(buf)
+
+	// variable load: most requests run a 1x-3x burst, ~1/12 spike up to 8x.
+	// identical Length therefore yields a spiky, uneven CPU profile.
+	burst := 1 + rand.Intn(3)
+	if rand.Intn(12) == 0 {
+		burst = 4 + rand.Intn(5)
+	}
 	h := sha256.New()
-	iters := req.Length * 4
+	iters := req.Length * 4 * burst
 	for i := 0; i < iters; i++ {
 		h.Write(buf)
 	}
