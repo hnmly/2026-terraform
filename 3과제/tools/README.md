@@ -33,7 +33,8 @@ python3 dashboard.py --namespace app --waf-log-group aws-waf-logs-wsi2026b
 CloudShell은 포트 직접 접속이 안 되므로 **임시 공개 URL 터널**(cloudflared)로 봅니다:
 ```bash
 mkdir -p ~/bin
-curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o ~/bin/cloudflared && chmod +x ~/bin/cloudflared
+curl -fsSL -o ~/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+chmod +x ~/bin/cloudflared
 python3 dashboard.py --namespace app --port 8080 &      # 대시보드 백그라운드 실행
 ~/bin/cloudflared tunnel --url http://localhost:8080    # 출력되는 https://...trycloudflare.com 을 브라우저로
 ```
