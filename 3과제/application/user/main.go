@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -32,6 +33,17 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// jitter introduces variable per-request latency: a small base jitter on
+// every call plus a rare (~1/20) larger spike, so the latency profile is
+// uneven under load rather than flat.
+func jitter() {
+	d := time.Duration(rand.Intn(8)) * time.Millisecond
+	if rand.Intn(20) == 0 {
+		d += time.Duration(50+rand.Intn(70)) * time.Millisecond
+	}
+	time.Sleep(d)
 }
 
 func initDB() {
@@ -105,6 +117,7 @@ func createUser(c *gin.Context) {
 		return
 	}
 
+	jitter()
 	id := fmt.Sprintf("%s-%d", req.Username, time.Now().UnixNano())
 	_, err := db.ExecContext(c.Request.Context(),
 		"INSERT INTO user (id, username, email) VALUES (?, ?, ?)",
@@ -125,6 +138,7 @@ func getUser(c *gin.Context) {
 		return
 	}
 
+	jitter()
 	var u User
 	err := db.QueryRowContext(c.Request.Context(),
 		"SELECT id, username, email FROM user WHERE email = ?", email).
