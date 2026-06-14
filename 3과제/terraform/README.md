@@ -189,12 +189,25 @@ kubectl -n app get pods -o wide
 
 ## 데이터 로드
 
-대회 당일 받는 `load_user.dump` 파일을 RDS에 로드:
+⚠️ **RDS는 프라이빗**(`publicly_accessible=false`, SG가 VPC 내부 CIDR만 허용)이라
+**CloudShell에서 직접 `mysql` 접속은 안 됩니다(연결 대기/멈춤).** VPC 안에서 도는
+**임시 파드**로 덤프를 주입하세요.
 
 ```bash
-mysql -h $(terraform output -raw rds_endpoint | cut -d: -f1) \
-      -u appuser -p"$(terraform output -raw db_password)" dev < load_user.dump
+cd ~/2026-terraform/3과제/terraform
+export TF_DATA_DIR=/tmp/wsi-tf-data
+EP=$(terraform output -raw rds_endpoint | cut -d: -f1)
+PW=$(terraform output -raw db_password)
+
+# dump 는 3과제 폴더(상위)에 있음 → ../load_user.dump
+kubectl -n app run mysql-load --rm -i --restart=Never --image=mysql:8.0 -- \
+  mysql -h "$EP" -u appuser -p"$PW" dev < ../load_user.dump
+
+# 적재 확인
+kubectl -n app run mysql-q --rm -i --restart=Never --image=mysql:8.0 -- \
+  mysql -h "$EP" -u appuser -p"$PW" dev -e "SELECT COUNT(*) FROM user;"
 ```
+> `kubectl` 안 잡히면 먼저: `aws eks update-kubeconfig --name <클러스터명> --region ap-northeast-2`
 
 ## 검증된 동작
 
@@ -255,6 +268,23 @@ terraform apply -auto-approve
 
 ### 5. `kubernetes_secret.db: Unauthorized` 등 일시적 인증 오류
 클러스터 초기화/액세스 전파 타이밍 문제인 경우가 많음 → `terraform apply` 재실행 시 대개 해소.
+
+### 6. 이름 충돌(409)이 안 풀려 빨리 새로 깔아야 할 때 — 프로젝트명 변경
+state가 완전히 사라졌는데 옛 리소스가 AWS에 남아 409가 반복되면, **프로젝트명을 바꿔
+전부 새 이름으로 배포**하면 충돌이 한 번에 사라집니다 (비상 탈출용).
+
+```bash
+cd ~/2026-terraform/3과제/terraform
+rm -f terraform.tfstate terraform.tfstate.backup          # (깨졌거나 빈 state일 때만)
+sed -i 's/default = "wsi2026"/default = "wsi2026b"/' variables.tf   # 새 프로젝트명
+export TF_DATA_DIR=/tmp/wsi-tf-data
+terraform init && terraform apply -auto-approve
+```
+
+⚠️ **주의**
+- 옛 `wsi2026-*` 리소스는 **그대로 남아 비용 발생**(채점의 비용 ratio↑) → **채점 전 콘솔/CLI로 삭제**.
+- 이건 **최후의 수단**입니다. 평소엔 **state를 안 지우고**(CloudShell 홈은 영속) 같은 폴더에서
+  계속 작업하는 게 정석 — 그러면 409 자체가 안 납니다. (state가 "이미 만든 것"을 기억하므로)
 
 ### 컨트롤러 정상 동작 확인
 ```bash
