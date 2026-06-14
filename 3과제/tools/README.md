@@ -29,12 +29,15 @@ python3 monitor.py --port 8080 --host 0.0.0.0 \
 
 ## 보는 방법 (중요)
 - **로컬 PC(브라우저 가능)에서 실행 권장**: `aws eks update-kubeconfig ...` 로 클러스터 연결 후 `python3 monitor.py` → 브라우저로 `http://127.0.0.1:8080`.
-- **AWS CloudShell은 브라우저로 localhost 접속이 안 됩니다.** CloudShell에서 쓰려면 데이터만 확인:
+- **AWS CloudShell은 브라우저로 localhost 접속이 안 됩니다(포트포워딩/웹 프리뷰 미지원).**
+  CloudShell에서는 **터미널 출력 모드**를 쓰세요 (브라우저 불필요):
   ```bash
-  python3 monitor.py --host 127.0.0.1 &     # 백그라운드
-  curl -s localhost:8080/api/data | python3 -m json.tool | head -60
+  python3 monitor.py --once  --since 15m                  # 1회 출력
+  python3 monitor.py --watch 10 --since 15m               # 10초마다 갱신(Ctrl+C 종료)
+  # 프로젝트명이 wsi2026b 면 WAF 로그그룹 지정:
+  python3 monitor.py --once --waf-log-group aws-waf-logs-wsi2026b
   ```
-  대시보드 화면이 필요하면 kubeconfig/자격증명이 있는 로컬 PC에서 실행하세요.
+  그래프가 있는 웹 UI가 필요하면 **kubeconfig/자격증명이 있는 로컬 PC**에서 `python3 monitor.py` 실행 후 브라우저로 `http://127.0.0.1:8080`.
 
 ## 전제 (데이터가 비어 보일 때)
 1. **WAF 탭**: terraform `waf.tf` 에 **WAF 로깅이 설정돼야** 데이터가 찹니다.

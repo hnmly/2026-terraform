@@ -505,6 +505,48 @@ class Server(ThreadingHTTPServer):
         pass
 
 
+def _mins(since):
+    try:
+        return int(since[:-1]) * (60 if since.endswith("h") else 1)
+    except Exception:
+        return 15
+
+
+def render_text(d):
+    L = []
+    s = d["summary"]
+    L.append("=" * 70)
+    L.append("  3과제 모니터링  %s  | allow %d  block %d | 2xx %d 4xx %d 5xx %d | pod %d/%d  node %d" % (
+        d["ts"], s["allow"], s["block"], s["c2"], s["c4"], s["c5"], s["pods_ready"], s["pods_total"], s["nodes_total"]))
+    L.append("=" * 70)
+    for a in d["apps"]:
+        L.append("[%-7s] req %-6d 2xx/4xx/5xx %d/%d/%d  ok %.0f%%  SLO<=%dms %.0f%%  p50/95/99 %d/%d/%d ms" % (
+            a["app"], a["total"], a["c2"], a["c4"], a["c5"], a["ok_rate"], a["slo_ms"], a["slo_rate"], a["p50"], a["p95"], a["p99"]))
+        for r in a["recent5"][:3]:
+            L.append("    5xx  %s %s %s  %sms  %s" % (r["ts"], r["m"], r["path"], r["dur"], r["ip"]))
+        for r in a["recent4"][:2]:
+            L.append("    4xx  %s %s %s  %sms  %s" % (r["ts"], r["m"], r["path"], r["dur"], r["ip"]))
+    L.append("- Pods " + "-" * 60)
+    for p in d["pods"]:
+        st = p["phase"] + ("/Ready" if p["ready"] else "/NotReady")
+        L.append("  %-26s %-14s rst%-3s cpu %-6s mem %-8s %-22s %s" % (
+            p["name"], st, p["restarts"], p["cpu"], p["mem"], p["node"].split(".")[0], ("!! " + p["reason"]) if p["reason"] else ""))
+    L.append("- Nodes " + "-" * 59)
+    for n in d["nodes"]:
+        L.append("  %-46s %-16s %-9s cpu %-5s mem %-5s" % (
+            n["name"].split(".")[0], n["type"] + ("(karp)" if n["karpenter"] else "(base)"), n["ready"], n["cpu_pct"], n["mem_pct"]))
+    L.append("- WAF " + "-" * 61)
+    w = d["waf"]
+    L.append("  로깅 미설정 (waf.tf 로깅 추가 필요)" if not w.get("enabled") else "  차단(403) %d건  룰: %s" % (
+        w["total"], ", ".join("%s×%d" % (r[0], r[1]) for r in w["by_rule"][:3]) or "-"))
+    L.append("- 진단 (원인 / 해결) " + "-" * 48)
+    for t in d["diag"]:
+        L.append("  [%s] %s" % (t[0].upper(), t[1]))
+        if t[3]:
+            L.append("        해결: " + t[3].replace("\n", "\n              "))
+    return "\n".join(L)
+
+
 def main():
     ap = argparse.ArgumentParser(description="3과제 모니터링 대시보드")
     ap.add_argument("--port", type=int, default=8080)
@@ -512,10 +554,26 @@ def main():
     ap.add_argument("--namespace", default="app")
     ap.add_argument("--waf-log-group", default="aws-waf-logs-wsi2026")
     ap.add_argument("--waf-region", default="ap-northeast-2")
+    ap.add_argument("--since", default="15m", help="조회 기간 (예: 5m, 15m, 1h)")
+    ap.add_argument("--once", action="store_true", help="웹서버 대신 터미널에 1회 출력 (CloudShell용)")
+    ap.add_argument("--watch", type=int, default=0, metavar="SEC", help="N초마다 터미널 갱신 (CloudShell용)")
     a = ap.parse_args()
     CFG["ns"] = a.namespace
     CFG["waf_group"] = a.waf_log_group
     CFG["waf_region"] = a.waf_region
+    if a.once or a.watch:
+        wm = _mins(a.since)
+        try:
+            while True:
+                if a.watch:
+                    print("\033[2J\033[H", end="")
+                print(render_text(build_data(a.since, wm)))
+                if not a.watch:
+                    break
+                time.sleep(a.watch)
+        except KeyboardInterrupt:
+            pass
+        return
     bar = "-" * 54
     print(bar + "\n  3과제 모니터링 대시보드\n  http://%s:%d   (Ctrl+C 종료)\n" % (a.host, a.port) + bar)
     try:
