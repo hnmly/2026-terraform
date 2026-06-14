@@ -16,29 +16,42 @@
 - kubeconfig: `aws eks update-kubeconfig --name <클러스터명> --region ap-northeast-2`
 - 리소스 사용량(CPU/MEM)은 metrics-server 필요(이 프로젝트는 애드온으로 설치됨)
 
-## 실행
+## 실행 환경별 보기
+
+> ⚠️ **AWS CloudShell은 브라우저로 localhost 포트에 접속하는 기능(포트포워딩/웹 프리뷰)이 없습니다.**
+> (Cloud9과 다름) → CloudShell에서 띄운 웹서버는 브라우저로 못 봅니다.
+> **CloudShell = 터미널 모드(--once/--watch)**, **그래프 웹 UI = 로컬 PC**.
+
+### A. CloudShell — 터미널 출력 (브라우저 불필요) ← 대회 환경
 ```bash
-cd 3과제/tools
-python3 monitor.py                       # http://127.0.0.1:8080
-# 옵션
-python3 monitor.py --port 8080 --host 0.0.0.0 \
-  --namespace app \
-  --waf-log-group aws-waf-logs-wsi2026 --waf-region ap-northeast-2
+cd ~/2026-terraform/3과제/tools
+aws eks update-kubeconfig --name wsi2026b-cluster --region ap-northeast-2   # 최초 1회
+
+python3 monitor.py --once   --since 15m            # 1회 스냅샷
+python3 monitor.py --watch 10 --since 15m          # 10초마다 갱신 (Ctrl+C 종료)
+
+# WAF 로깅을 켰고 프로젝트명이 wsi2026b 면 로그그룹 지정:
+python3 monitor.py --watch 10 --waf-log-group aws-waf-logs-wsi2026b
 ```
-> 프로젝트명을 바꿔 배포했다면(예: wsi2026b) WAF 로그그룹도 `--waf-log-group aws-waf-logs-wsi2026b` 로 맞추세요.
+출력 순서: 요약(allow/block·2xx/4xx/5xx·pod·node) → 앱별 카운트+최근 5xx/4xx
+→ Pod(상태/재시작/CPU·MEM/사유) → 노드 → WAF → **진단(원인·해결)**.
 
-## 보는 방법 (중요)
-- **로컬 PC(브라우저 가능)에서 실행 권장**: `aws eks update-kubeconfig ...` 로 클러스터 연결 후 `python3 monitor.py` → 브라우저로 `http://127.0.0.1:8080`.
-- **AWS CloudShell은 브라우저로 localhost 접속이 안 됩니다(포트포워딩/웹 프리뷰 미지원).**
-  CloudShell에서는 **터미널 출력 모드**를 쓰세요 (브라우저 불필요):
-  ```bash
-  python3 monitor.py --once  --since 15m                  # 1회 출력
-  python3 monitor.py --watch 10 --since 15m               # 10초마다 갱신(Ctrl+C 종료)
-  # 프로젝트명이 wsi2026b 면 WAF 로그그룹 지정:
-  python3 monitor.py --once --waf-log-group aws-waf-logs-wsi2026b
-  ```
-  그래프가 있는 웹 UI가 필요하면 **kubeconfig/자격증명이 있는 로컬 PC**에서 `python3 monitor.py` 실행 후 브라우저로 `http://127.0.0.1:8080`.
+### B. 로컬 PC — 그래프 웹 UI
+브라우저가 되는 PC(노트북)에서 (aws CLI·kubectl·python3 필요):
+```bash
+aws eks update-kubeconfig --name wsi2026b-cluster --region ap-northeast-2
+python3 monitor.py --namespace app                 # 브라우저: http://127.0.0.1:8080
+```
+탭: 개요 / user / product / stress / Pod / 노드 / WAF / 진단
 
+### 공통 옵션
+```
+--namespace app                 대상 네임스페이스 (기본 app)
+--since 15m                     조회 기간 (5m/15m/30m/1h)
+--once / --watch <초>           터미널 1회 / 주기 갱신 (CloudShell)
+--port 8080 --host 127.0.0.1    웹서버 (로컬 PC)
+--waf-log-group / --waf-region  WAF 로그그룹/리전 (기본 aws-waf-logs-wsi2026 / ap-northeast-2)
+```
 ## 전제 (데이터가 비어 보일 때)
 1. **WAF 탭**: terraform `waf.tf` 에 **WAF 로깅이 설정돼야** 데이터가 찹니다.
    (CloudWatch 로그그룹 `aws-waf-logs-*` + `aws_wafv2_web_acl_logging_configuration`)
