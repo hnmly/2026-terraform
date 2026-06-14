@@ -81,3 +81,16 @@ resource "aws_wafv2_web_acl" "regional" {
     sampled_requests_enabled   = true
   }
 }
+
+
+# ----- WAF 로깅 (모니터링 대시보드의 block/403 분석용) -----
+# 로그그룹 이름은 반드시 "aws-waf-logs-" 로 시작해야 한다 (WAF 요구사항).
+resource "aws_cloudwatch_log_group" "waf" {
+  name              = "aws-waf-logs-${local.name}"
+  retention_in_days = 7
+}
+
+resource "aws_wafv2_web_acl_logging_configuration" "regional" {
+  resource_arn            = aws_wafv2_web_acl.regional.arn
+  log_destination_configs = [aws_cloudwatch_log_group.waf.arn]
+}
